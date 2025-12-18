@@ -1,10 +1,23 @@
 Django>=5.0
+
+# Django REST
 djangorestframework
 django-cors-headers
+
+# Media / Images
 Pillow
+
+# Database
 psycopg2-binary
+dj-database-url
+
+# Production server
 gunicorn
 whitenoise
+
+# Environment variables
 python-decouple
-cloudinary  # optional for video hosting
-boto3       # if using AWS S3
+
+# Optional (enable only if used)
+cloudinary
+boto3
