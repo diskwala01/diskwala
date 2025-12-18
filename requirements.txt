@@ -1,23 +1,12 @@
-Django>=5.0
-
-# Django REST
+Django>=5.0,<6.0
 djangorestframework
 django-cors-headers
-
-# Media / Images
 Pillow
-
-# Database
 psycopg2-binary
 dj-database-url
-
-# Production server
 gunicorn
 whitenoise
-
-# Environment variables
 python-decouple
-
-# Optional (enable only if used)
+python-magic
 cloudinary
 boto3
