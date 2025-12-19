@@ -1,4 +1,4 @@
-# core/models.py → FULL FIXED VERSION (NO ERRORS)
+# core/models.py → UPDATED FOR IMAGEKIT.IO DIRECT UPLOAD (NO SERVER STORAGE)
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -28,7 +28,6 @@ class User(AbstractUser):
     paid_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Fix for AbstractUser related_name conflicts
     groups = models.ManyToManyField(
         'auth.Group',
         related_name='core_user_set',
@@ -54,8 +53,25 @@ class UserFile(models.Model):
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='files')
-    file = models.FileField(upload_to='uploads/%Y/%m/%d/')
-    thumbnail = models.ImageField(upload_to='thumbnails/%Y/%m/%d/', blank=True, null=True)
+    
+    # REMOVED: file = models.FileField(...)
+    # REMOVED: thumbnail = models.ImageField(...)
+    
+    # NEW: External ImageKit URLs
+    external_file_url = models.URLField(
+        max_length=500,
+        blank=True,        # ← Yeh add karo (form mein optional)
+        null=True,         # ← Yeh add karo (database mein NULL allow karega)
+        default="",        # ← Optional: empty string as default
+        help_text="Direct ImageKit URL of the uploaded file"
+    )
+    external_thumbnail_url = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        default="",        # ya None rakh sakte ho
+        help_text="ImageKit thumbnail URL (auto-generated for videos or custom)"
+    )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     file_type = models.CharField(max_length=10, choices=FILE_TYPE_CHOICES)
@@ -81,7 +97,7 @@ class UserFile(models.Model):
 
     def public_url(self):
         from django.urls import reverse
-        return reverse('file_detail', kwargs={'short_code': self.short_code})
+        return reverse('public_file_view', kwargs={'short_code': self.short_code})  # url name match karo
 
 
 class FileView(models.Model):
@@ -91,7 +107,6 @@ class FileView(models.Model):
     viewed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Rough unique per day (we handle actual uniqueness in view logic)
         unique_together = ('file', 'ip_address', 'viewed_at')
         indexes = [
             models.Index(fields=['file', 'ip_address', 'viewed_at']),
@@ -139,6 +154,19 @@ class SiteSettings(models.Model):
     min_withdrawal = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
     site_name = models.CharField(max_length=100, default="dSkWala")
 
+    admob_banner_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="ca-app-pub-3940256099942544/6300978111",
+        help_text="AdMob Banner Ad Unit ID"
+    )
+    admob_interstitial_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="ca-app-pub-3940256099942544/1033173712",
+        help_text="AdMob Interstitial Ad Unit ID"
+    )
+
     class Meta:
         verbose_name = "Site Setting"
         verbose_name_plural = "Site Settings"
@@ -149,19 +177,6 @@ class SiteSettings(models.Model):
     @classmethod
     def get_settings(cls):
         return cls.objects.first() or cls.objects.create()
-    
-    admob_banner_id = models.CharField(
-        max_length=100,
-        blank=True,
-        default="ca-app-pub-3940256099942544/6300978111",  # default test ID
-        help_text="AdMob Banner Ad Unit ID"
-    )
-    admob_interstitial_id = models.CharField(
-        max_length=100,
-        blank=True,
-        default="ca-app-pub-3940256099942544/1033173712",  # default test ID
-        help_text="AdMob Interstitial Ad Unit ID"
-    )
 
 
 class BotLink(models.Model):

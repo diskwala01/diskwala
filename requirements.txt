@@ -10,3 +10,4 @@ whitenoise
 python-decouple
 cloudinary
 boto3
+imagekitio

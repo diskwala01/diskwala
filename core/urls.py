@@ -19,6 +19,7 @@ from .views import (
     public_file_view,
     public_bot_links,
     get_admob_ids,
+    imagekit_auth,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -61,6 +62,7 @@ urlpatterns = [
     # =====================================================
     path("profile/", ProfileView.as_view(), name="profile"),
     path("upload/", UploadFileView.as_view(), name="upload"),
+    path("imagekit/auth/", imagekit_auth, name="imagekit_auth"),
     path("my-files/", MyFilesView.as_view(), name="my_files"),
     path("analytics/", AnalyticsView.as_view(), name="analytics"),
     path("withdraw/", CreateWithdrawalView.as_view(), name="withdraw"),

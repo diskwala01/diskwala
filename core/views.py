@@ -1,8 +1,12 @@
 # core/views.py
 # FINAL UPDATED VERSION WITH DOWNLOADS SUPPORT & FIXED ALL ERRORS
-
+import os
 import random
 import string
+import time
+import hashlib
+import hmac
+import binascii
 from datetime import timedelta
 from decimal import Decimal  # ← Yeh import missing tha!
 
@@ -17,6 +21,7 @@ from django.utils.decorators import method_decorator
 from django.conf import settings as dj_settings
 from django.http import JsonResponse, HttpResponseForbidden
 from django.core.management import call_command
+from imagekitio import ImageKit
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -81,23 +86,26 @@ class UploadFileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        file_obj = request.FILES.get('file')
-        if not file_obj:
-            return Response({"error": "No file uploaded"}, status=400)
+        file_url = request.data.get('file_url')
+        thumbnail_url = request.data.get('thumbnail_url')  # Optional (ImageKit auto generate karta hai video ke liye)
+        title = request.data.get('title', 'Untitled')
+        file_type = request.data.get('file_type')  # 'video', 'image', 'other'
+        allow_download = request.data.get('allow_download', True)
 
-        title = request.data.get('title', file_obj.name.rsplit('.', 1)[0] if '.' in file_obj.name else file_obj.name)
-        allow_download = request.data.get('allow_download', 'true').lower() == 'true'
+        if not file_url or not file_type:
+            return Response({"error": "file_url and file_type are required"}, status=400)
 
-        file_type = detect_file_type(file_obj)
-        thumbnail = generate_thumbnail(file_obj) if file_type == 'video' else None
+        if file_type not in ['video', 'image', 'other']:
+            return Response({"error": "Invalid file_type"}, status=400)
 
         user_file = UserFile.objects.create(
             user=request.user,
-            file=file_obj,
-            thumbnail=thumbnail,
             title=title,
             file_type=file_type,
+            short_code=''.join(random.choices(string.ascii_uppercase + string.digits, k=8)),
             allow_download=allow_download,
+            external_file_url=file_url,
+            external_thumbnail_url=thumbnail_url or file_url,  # fallback to file_url
         )
 
         return Response(FileSerializer(user_file, context={'request': request}).data, status=201)
@@ -108,20 +116,24 @@ class UploadFileView(APIView):
 @permission_classes([IsAuthenticated])
 def update_file(request, pk):
     try:
-        file = UserFile.objects.get(pk=pk, user=request.user)
+        file_obj = UserFile.objects.get(pk=pk, user=request.user)
     except UserFile.DoesNotExist:
         return Response({"error": "File not found"}, status=404)
 
     if 'title' in request.data:
-        file.title = request.data['title']
+        file_obj.title = request.data['title']
     if 'allow_download' in request.data:
-        file.allow_download = request.data['allow_download']
-    if 'thumbnail' in request.FILES:
-        file.thumbnail = request.FILES['thumbnail']
-    file.save()
-    return Response(FileSerializer(file, context={'request': request}).data)
+        file_obj.allow_download = request.data.get('allow_download')
+    if 'external_thumbnail_url' in request.data:
+        file_obj.external_thumbnail_url = request.data['external_thumbnail_url']
+
+    file_obj.save()
+    return Response(FileSerializer(file_obj, context={'request': request}).data)
 
 
+# ========================
+# PUBLIC FILE VIEW (View & Download Tracking)
+# ========================
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def public_file_view(request, short_code):
@@ -134,48 +146,32 @@ def public_file_view(request, short_code):
     settings = SiteSettings.get_settings()
     earning_rate = settings.earning_per_view
 
-    # Flag to check if download is requested or non-video
     download_requested = request.query_params.get('download', 'false').lower() == 'true'
     is_download_action = (file_obj.file_type != 'video') or download_requested
 
-    # === VIEW COUNT (only for video) ===
     view_incremented = False
     if file_obj.file_type == 'video':
         file_obj.views += 1
         if is_unique_view_today(file_obj, ip):
             file_obj.unique_views += 1
-            FileView.objects.create(
-                file=file_obj,
-                ip_address=ip,
-                user_agent=request.META.get('HTTP_USER_AGENT', '')
-            )
+            FileView.objects.create(file=file_obj, ip_address=ip, user_agent=request.META.get('HTTP_USER_AGENT', ''))
         view_incremented = True
 
-    # === DOWNLOAD COUNT (for non-video or forced download) ===
     download_incremented = False
     if is_download_action:
         file_obj.downloads += 1
-        if not FileDownload.objects.filter(
-            file=file_obj,
-            ip_address=ip,
-            downloaded_at__date=timezone.now().date()
-        ).exists():
+        if not FileDownload.objects.filter(file=file_obj, ip_address=ip, downloaded_at__date=timezone.now().date()).exists():
             file_obj.unique_downloads += 1
-            FileDownload.objects.create(
-                file=file_obj,
-                ip_address=ip,
-                user_agent=request.META.get('HTTP_USER_AGENT', '')
-            )
+            FileDownload.objects.create(file=file_obj, ip_address=ip, user_agent=request.META.get('HTTP_USER_AGENT', ''))
         download_incremented = True
 
     file_obj.save()
 
-    # === EARNING CALCULATION ===
+    # Earnings
     earning = Decimal('0.0')
     if view_incremented:
         earning += earning_rate
     if download_incremented:
-        # Optional: higher rate for downloads (1.5x)
         earning += earning_rate * Decimal('1.5')
 
     if earning > 0:
@@ -187,11 +183,9 @@ def public_file_view(request, short_code):
 
     file_obj.save()
 
-    # Serialize response
     serializer = FileSerializer(file_obj, context={'request': request})
     data = serializer.data
     data['should_download'] = is_download_action
-
     return Response(data)
 
 
@@ -650,3 +644,42 @@ def create_superuser(request):
         password="DISKwala7678"
     )
     return JsonResponse({"status": "created"})
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def imagekit_auth(request):
+    private_key_str = getattr(dj_settings, 'IMAGEKIT_PRIVATE_KEY', None)  # Renamed for clarity
+    
+    print("Private key loaded:", "Yes" if private_key_str else "No")
+    
+    if not private_key_str:
+        return Response({"error": "Private key missing in settings"}, status=500)
+    
+    try:
+        # Generate token (random hex string)
+        token = binascii.hexlify(os.urandom(16)).decode()
+        expire = int(time.time()) + 3600  # 1 hour expiry
+        message = token + str(expire)
+        
+        # FIX: Use bytes directly (no .encode() on the key)
+        private_key_bytes = private_key_str.encode('utf-8')  # Convert string to bytes once
+        
+        signature = hmac.new(
+            private_key_bytes,               # ← Use bytes here
+            message.encode('utf-8'),
+            hashlib.sha1
+        ).hexdigest()
+        
+        print("Auth params generated:", {"token": token[:10] + "...", "expire": expire, "signature": signature[:10] + "..."})
+        
+        return Response({
+            "token": token,
+            "expire": expire,
+            "signature": signature
+        })
+        
+    except Exception as e:
+        print("Error in imagekit_auth:", str(e))
+        import traceback
+        traceback.print_exc()
+        return Response({"error": "Auth generation failed"}, status=500)

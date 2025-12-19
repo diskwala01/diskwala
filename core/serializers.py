@@ -1,4 +1,4 @@
-# core/serializers.py
+# core/serializers.py → UPDATED FOR IMAGEKIT EXTERNAL URLS
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
@@ -27,36 +27,23 @@ class FileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserFile
         fields = [
-            'id', 'title', 'file', 'file_url', 'thumbnail_url',
+            'id', 'title', 'file_url', 'thumbnail_url',  # file field removed
             'file_type', 'views', 'short_code', 'is_active', 'created_at',
-            'downloads', 'download_earnings'
+            'downloads', 'download_earnings', 'allow_download'
         ]
 
     def get_file_url(self, obj):
-        if obj.file:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
-        return None
+        return obj.external_file_url
 
     def get_thumbnail_url(self, obj):
-        request = self.context.get('request')
-
-        # Agar thumbnail hai (video ya manually upload kiya gaya)
-        if obj.thumbnail:
-            if request:
-                return request.build_absolute_uri(obj.thumbnail.url)
-            return obj.thumbnail.url
-
-        # Agar thumbnail nahi hai lekin file image hai → file ko hi thumbnail bana do
-        if obj.file and obj.file_type in ['image', 'psd']:
-            if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
-
-        # Final fallback (agar kuch bhi nahi mila)
-        return "https://via.placeholder.com/64x64.png?text=No+Image"
+        # Priority: custom thumbnail > auto-generated > file itself (for images) > placeholder
+        if obj.external_thumbnail_url:
+            return obj.external_thumbnail_url
+        
+        if obj.file_type == 'image':
+            return obj.external_file_url
+        
+        return "https://via.placeholder.com/300x200/333333/ffffff?text=No+Preview"
 
     def get_public_link(self, obj):
         request = self.context.get('request')
@@ -71,7 +58,6 @@ class WithdrawalSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['user', 'status', 'requested_at', 'processed_at']
 
-# core/serializers.py → end mein
 
 class BotLinkSerializer(serializers.ModelSerializer):
     class Meta:
