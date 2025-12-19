@@ -353,13 +353,9 @@ def admin_users(request):
 @permission_classes([IsSuperuser])
 def admin_all_files(request):
     files = UserFile.objects.select_related('user').all()
-    base_url = request.build_absolute_uri('/').rstrip('/')
 
     data = []
     for f in files:
-        file_url = f.file.url if f.file else None
-        thumb_url = f.thumbnail.url if f.thumbnail else (f.file.url if f.file else None)
-
         data.append({
             "id": f.id,
             "title": f.title or "Untitled",
@@ -369,9 +365,14 @@ def admin_all_files(request):
             "earnings": round(float(f.earnings), 5),
             "is_active": f.is_active,
             "created_at": f.created_at.strftime("%b %d, %Y"),
-            "file_url": base_url + file_url if file_url else "",
-            "thumbnail_url": base_url + thumb_url if thumb_url else "https://via.placeholder.com/80x80/333/fff?text=No+Image",
+            "file_url": f.external_file_url or "",
+            "thumbnail_url": (
+                f.external_thumbnail_url
+                or (f.external_file_url if f.file_type == "image" else
+                    "https://via.placeholder.com/80x80/333/fff?text=No+Image")
+            ),
         })
+
     return Response(data)
 
 
