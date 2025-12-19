@@ -1,13 +1,9 @@
 Django>=5.0,<6.0
 djangorestframework
 django-cors-headers
-Pillow
-moviepy
 psycopg2-binary
 dj-database-url
 gunicorn
 whitenoise
 python-decouple
-cloudinary
-boto3
 imagekitio
