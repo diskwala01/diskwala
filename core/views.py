@@ -33,7 +33,7 @@ from rest_framework.authtoken.models import Token
 
 from .models import UserFile, FileView, Withdrawal, SiteSettings, BotLink, FileDownload  # ← FileDownload add kiya
 from .serializers import UserProfileSerializer, FileSerializer, WithdrawalSerializer, BotLinkSerializer
-from .services import detect_file_type, generate_thumbnail
+from .services import calculate_earnings_per_view
 from .utils import get_client_ip, is_unique_view_today
 
 User = get_user_model()
