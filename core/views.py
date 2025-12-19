@@ -625,13 +625,13 @@ def health_check(request):
     return JsonResponse({"status": "ok"})
 
 def run_migrations(request):
-    if request.GET.get("key") != settings.SYSTEM_SECRET:
+    if request.GET.get("key") != dj_settings.SYSTEM_SECRET:
         return HttpResponseForbidden()
     call_command("migrate")
     return JsonResponse({"status": "ok"})
 
 def create_superuser(request):
-    if request.GET.get("key") != settings.SYSTEM_SECRET:
+    if request.GET.get("key") != dj_settings.SYSTEM_SECRET:
         return HttpResponseForbidden()
 
     User = get_user_model()
