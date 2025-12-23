@@ -645,13 +645,16 @@ def run_full_migration(request):
         return HttpResponseForbidden("Forbidden")
 
     try:
-        call_command("makemigrations")
-        call_command("migrate")
+        call_command("makemigrations", "core", interactive=False)
+        call_command("migrate", interactive=False)
+
         return JsonResponse({
             "status": "ok",
-            "message": "makemigrations + migrate completed"
+            "message": "core makemigrations + migrate completed"
         })
+
     except Exception as e:
+        traceback.print_exc()
         return JsonResponse({
             "status": "error",
             "error": str(e)

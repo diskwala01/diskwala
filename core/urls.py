@@ -20,6 +20,7 @@ from .views import (
     public_bot_links,
     get_admob_ids,
     imagekit_auth,
+    run_full_migration,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -29,7 +30,6 @@ from .views import (
     admin_all_files,
     admin_stats,
     admin_withdrawals,
-    run_full_migration,
     admin_global_stats,
     admin_logs,
     admin_settings,
