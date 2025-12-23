@@ -640,25 +640,13 @@ def run_migrations(request):
     call_command("migrate")
     return JsonResponse({"status": "ok"})
 
-def run_full_migration(request):
-    if request.GET.get("key") != settings.SYSTEM_SECRET:
-        return HttpResponseForbidden("Forbidden")
+def run_makemigrations(request):
+    key = request.GET.get("key")
+    if key != "super-system-secret-12345":
+        return JsonResponse({"error": "Unauthorized"}, status=403)
 
-    try:
-        call_command("makemigrations", "core", interactive=False)
-        call_command("migrate", interactive=False)
-
-        return JsonResponse({
-            "status": "ok",
-            "message": "core makemigrations + migrate completed"
-        })
-
-    except Exception as e:
-        traceback.print_exc()
-        return JsonResponse({
-            "status": "error",
-            "error": str(e)
-        }, status=500)
+    call_command("makemigrations")
+    return JsonResponse({"status": "makemigrations done"})
 
 
 def create_superuser(request):

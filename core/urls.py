@@ -20,7 +20,6 @@ from .views import (
     public_bot_links,
     get_admob_ids,
     imagekit_auth,
-    run_full_migration,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -130,6 +129,5 @@ urlpatterns = [
         create_superuser,
         name="system_create_superuser",
     ),
-    path("system/full-migrate/", run_full_migration),
     path("health/", health_check, name="health_check"),
 ]
