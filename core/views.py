@@ -617,11 +617,12 @@ def get_admob_ids(request):
     """
     settings = SiteSettings.get_settings()
     
-    return Response({
-        "banner_id": settings.admob_banner_id or "ca-app-pub-3940256099942544/6300978111",
-        "interstitial_id": settings.admob_interstitial_id or "ca-app-pub-3940256099942544/1033173712",
-    })
-
+   return Response({
+      "banner_id": settings.admob_banner_id or "test_banner",
+      "interstitial_id": settings.admob_interstitial_id or "test_interstitial",
+      "meta_banner_id": settings.meta_banner_placement_id,
+      "meta_interstitial_id": settings.meta_interstitial_placement_id,
+   })
 def health_check(request):
     return JsonResponse({"status": "ok"})
 

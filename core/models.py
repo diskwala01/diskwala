@@ -154,6 +154,19 @@ class SiteSettings(models.Model):
     min_withdrawal = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
     site_name = models.CharField(max_length=100, default="dSkWala")
 
+    meta_banner_placement_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Meta Audience Network Banner Placement ID"
+    )
+    meta_interstitial_placement_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Meta Audience Network Interstitial Placement ID"
+    )
+
     admob_banner_id = models.CharField(
         max_length=100,
         blank=True,
