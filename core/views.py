@@ -640,6 +640,23 @@ def run_migrations(request):
     call_command("migrate")
     return JsonResponse({"status": "ok"})
 
+def run_full_migration(request):
+    if request.GET.get("key") != settings.SYSTEM_SECRET:
+        return HttpResponseForbidden("Forbidden")
+
+    try:
+        call_command("makemigrations")
+        call_command("migrate")
+        return JsonResponse({
+            "status": "ok",
+            "message": "makemigrations + migrate completed"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "error": str(e)
+        }, status=500)
+
 
 def create_superuser(request):
     if request.GET.get("key") != dj_settings.SYSTEM_SECRET:

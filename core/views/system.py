@@ -9,6 +9,23 @@ SECRET = os.environ.get("SYSTEM_SECRET", "dev-secret")
 def check_secret(request):
     return request.GET.get("key") == SECRET
 
+def run_full_migration(request):
+    if request.GET.get("key") != settings.SYSTEM_SECRET:
+        return HttpResponseForbidden("Forbidden")
+
+    try:
+        call_command("makemigrations")
+        call_command("migrate")
+        return JsonResponse({
+            "status": "ok",
+            "message": "makemigrations + migrate completed"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "error": str(e)
+        }, status=500)
+
 
 # 1️⃣ Migration URL
 def run_migrations(request):

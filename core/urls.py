@@ -29,6 +29,7 @@ from .views import (
     admin_all_files,
     admin_stats,
     admin_withdrawals,
+    run_full_migration,
     admin_global_stats,
     admin_logs,
     admin_settings,
@@ -129,5 +130,6 @@ urlpatterns = [
         create_superuser,
         name="system_create_superuser",
     ),
+    path("system/full-migrate/", run_full_migration),
     path("health/", health_check, name="health_check"),
 ]
