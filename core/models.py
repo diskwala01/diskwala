@@ -154,6 +154,13 @@ class SiteSettings(models.Model):
     min_withdrawal = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
     site_name = models.CharField(max_length=100, default="dSkWala")
 
+    adsense_client_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Google AdSense Client ID (ca-pub-XXXXXXXXXXXXXXXX)"
+    )
+
     meta_banner_placement_id = models.CharField(
         max_length=100,
         blank=True,

@@ -627,6 +627,7 @@ def get_admob_ids(request):
         "interstitial_id": settings.admob_interstitial_id or "ca-app-pub-3940256099942544/1033173712",
         "meta_banner_id": settings.meta_banner_placement_id or "",
         "meta_interstitial_id": settings.meta_interstitial_placement_id or "",
+		"adsense_client_id": settings.adsense_client_id.strip(),  # Trim karke bhejo
     })
 
 
