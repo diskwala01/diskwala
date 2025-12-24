@@ -719,8 +719,18 @@ def run_migrate(request):
     if key != "super-system-secret-12345":
         return JsonResponse({"error": "Unauthorized"}, status=403)
 
-    call_command("migrate")
-    return JsonResponse({"status": "migrate done"})
+    out = io.StringIO()
+    try:
+        call_command("migrate", interactive=False, stdout=out, stderr=out)
+        return JsonResponse({
+            "status": "migrate done",
+            "output": out.getvalue()
+        })
+    except Exception as e:
+        return JsonResponse({
+            "error": str(e),
+            "output": out.getvalue()
+        }, status=500)
 
 
 def run_makemigrations(request):
