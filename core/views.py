@@ -714,11 +714,13 @@ def health_check(request):
     return JsonResponse({"status": "ok"})
 
 
-def run_migrations(request):
-    if request.GET.get("key") != dj_settings.SYSTEM_SECRET:
-        return HttpResponseForbidden()
+def run_migrate(request):
+    key = request.GET.get("key")
+    if key != "super-system-secret-12345":
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+
     call_command("migrate")
-    return JsonResponse({"status": "ok"})
+    return JsonResponse({"status": "migrate done"})
 
 
 def run_makemigrations(request):

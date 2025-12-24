@@ -40,7 +40,6 @@ from .views import (
     admin_reject_withdrawal,
     admin_manual_payout,
     admin_bot_links,
-    run_migrations,
     create_superuser,
     health_check,
     admin_manage_bot_link,
@@ -125,7 +124,6 @@ urlpatterns = [
     # =====================================================
     # SYSTEM / INTERNAL (SECURED)
     # =====================================================
-    path("system/migrate/", run_migrations, name="system_migrate"),
     path(
         "system/create-superuser/",
         create_superuser,

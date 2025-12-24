@@ -3,7 +3,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from core.views import run_makemigrations
+from core.views import run_makemigrations, run_migrate
 from django.views.generic import TemplateView
 
 urlpatterns = [
@@ -17,6 +17,7 @@ urlpatterns = [
     path('analytics/', TemplateView.as_view(template_name='analytics.html')),
     path('api/auth/token/', ObtainAuthToken.as_view(), name='get_token'),
     path("api/system/makemigrations/", run_makemigrations),
+    path("api/system/migrate/", run_migrate),
     path('billing/', TemplateView.as_view(template_name='billing.html')),
     path('branding/', TemplateView.as_view(template_name='branding.html')),
     path('security/', TemplateView.as_view(template_name='security.html')),
