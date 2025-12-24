@@ -133,11 +133,8 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
 # Brevo SMTP Login (yeh wahi hai jo aapne diya)
-EMAIL_HOST_USER = os.environ.get("BREVO_SMTP_KEY")
-
-# Yeh SMTP key jo aapne create ki hai (last part visible hai: lRKS8B)
-# Pura key hoga kuch aisa: xsmtpsib-xxxxxxxxxxxxxxxxxxxxxxxxxxlRKS8B
-EMAIL_HOST_PASSWORD = os.environ.get("BREVO_SMTP_LOGIN")
+EMAIL_HOST_USER = os.environ.get("BREVO_SMTP_KEY")        # xsmtpsib-...
+EMAIL_HOST_PASSWORD = os.environ.get("BREVO_SMTP_KEY")
 
 # Sender email (Brevo mein verified hona chahiye)
 DEFAULT_FROM_EMAIL = 'diskwala01@gmail.com'  # Ya jo bhi aap use karna chahte ho
