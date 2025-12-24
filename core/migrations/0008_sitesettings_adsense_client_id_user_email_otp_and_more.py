@@ -11,11 +11,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name='sitesettings',
-            name='adsense_client_id',
-            field=models.CharField(blank=True, default='', help_text='Google AdSense Client ID (ca-pub-XXXXXXXXXXXXXXXX)', max_length=100),
-        ),
-        migrations.AddField(
             model_name='user',
             name='email_otp',
             field=models.CharField(blank=True, max_length=6, null=True),
