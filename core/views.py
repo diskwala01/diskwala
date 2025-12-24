@@ -84,9 +84,6 @@ class ProfileView(APIView):
         return Response(UserProfileSerializer(request.user).data)
 
 
-# ========================
-# EMAIL OTP VERIFICATION (BREVO)
-# ========================
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -100,18 +97,43 @@ def send_email_otp(request):
     user.email_otp_expiry = timezone.now() + timedelta(minutes=10)
     user.save(update_fields=['email_otp', 'email_otp_expiry'])
 
-    subject = "DiskWala - Email Verification OTP"
-    message = f"Your OTP for email verification is: {otp}\n\nValid for 10 minutes only.\n\nDo not share this OTP."
-    send_mail(
-        subject,
-        message,
-        dj_settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        fail_silently=False,
-    )
+    api_key = os.environ.get("BREVO_API_KEY")
+    if not api_key:
+        return Response({"error": "Email service not configured"}, status=500)
 
-    return Response({"message": "OTP sent successfully to your email"})
+    url = "https://api.brevo.com/v3/smtp/email"
+    payload = {
+        "sender": {"name": "DiskWala", "email": "diskwala01@gmail.com"},
+        "to": [{"email": user.email, "name": user.username}],
+        "subject": "DiskWala - Email Verification OTP",
+        "htmlContent": f"""
+        <html>
+          <body>
+            <h2>Welcome to DiskWala!</h2>
+            <p>Your OTP for email verification is: <strong style="font-size:1.5em">{otp}</strong></p>
+            <p>This OTP is valid for <strong>10 minutes</strong> only.</p>
+            <p>Do not share this OTP with anyone.</p>
+            <br>
+            <p>Thanks,<br>DiskWala Team</p>
+          </body>
+        </html>
+        """
+    }
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
 
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response.raise_for_status()
+        return Response({"message": "OTP sent successfully to your email"})
+    except requests.exceptions.RequestException as e:
+        print("Brevo API Error:", e)
+        if hasattr(e, 'response') and e.response is not None:
+            print("Response:", e.response.text)
+        return Response({"error": "Failed to send OTP. Please try again later."}, status=500)
 
 def verify_email_otp(request):
     if request.method == 'GET':
