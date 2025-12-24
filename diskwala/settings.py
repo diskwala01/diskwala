@@ -125,6 +125,24 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
+# settings.py mein yeh lines add ya update kar do
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp-relay.brevo.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+# Brevo SMTP Login (yeh wahi hai jo aapne diya)
+EMAIL_HOST_USER = os.environ.get("BREVO_SMTP_KEY")
+
+# Yeh SMTP key jo aapne create ki hai (last part visible hai: lRKS8B)
+# Pura key hoga kuch aisa: xsmtpsib-xxxxxxxxxxxxxxxxxxxxxxxxxxlRKS8B
+EMAIL_HOST_PASSWORD = os.environ.get("BREVO_SMTP_LOGIN")
+
+# Sender email (Brevo mein verified hona chahiye)
+DEFAULT_FROM_EMAIL = 'diskwala01@gmail.com'  # Ya jo bhi aap use karna chahte ho
+SERVER_EMAIL = 'diskwala01@gmail.com'
+
 # ============================
 # STATIC FILES
 # ============================

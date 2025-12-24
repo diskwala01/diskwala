@@ -16,6 +16,8 @@ from .views import (
     CreateWithdrawalView,
     WithdrawalListView,
     update_file,
+    verify_email_otp,
+    send_email_otp,
     public_file_view,
     public_bot_links,
     get_admob_ids,
@@ -130,4 +132,6 @@ urlpatterns = [
         name="system_create_superuser",
     ),
     path("health/", health_check, name="health_check"),
+    path("send-email-otp/", send_email_otp, name="send_email_otp"),
+    path("verify-email/", verify_email_otp, name="verify_email"),
 ]

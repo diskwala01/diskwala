@@ -18,6 +18,8 @@ def generate_short_code():
 class User(AbstractUser):
     brand_name = models.CharField(max_length=100, blank=True, default="My Drive")
     email_verified = models.BooleanField(default=False)
+    email_otp = models.CharField(max_length=6, blank=True, null=True)
+    email_otp_expiry = models.DateTimeField(null=True, blank=True)
     phone = models.CharField(max_length=15, blank=True)
     telegram_channel = models.URLField(blank=True, null=True)
     support_link = models.URLField(blank=True, null=True)

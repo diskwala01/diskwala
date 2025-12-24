@@ -1,5 +1,10 @@
 # core/views.py
-# FINAL UPDATED VERSION WITH DOWNLOADS SUPPORT & FIXED ALL ERRORS + PROPER INDENTATION
+# FINAL UPDATED VERSION WITH:
+# - DOWNLOADS SUPPORT
+# - EMAIL OTP VERIFICATION (BREVO SMTP)
+# - EMAIL VERIFIED CHECK FOR WITHDRAWAL
+# - ADSENSE CLIENT ID SUPPORT
+# - ALL FIXES & PROPER INDENTATION
 
 import os
 import random
@@ -15,13 +20,14 @@ from django.contrib.admin.models import LogEntry
 from django.utils import timezone
 from django.db.models import Sum, Count
 from django.db.models.functions import TruncDate
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.contrib.auth import authenticate, get_user_model
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.conf import settings as dj_settings
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
 from django.core.management import call_command
+from django.core.mail import send_mail
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -76,6 +82,70 @@ class ProfileView(APIView):
 
     def get(self, request):
         return Response(UserProfileSerializer(request.user).data)
+
+
+# ========================
+# EMAIL OTP VERIFICATION (BREVO)
+# ========================
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def send_email_otp(request):
+    user = request.user
+    if user.email_verified:
+        return Response({"message": "Email already verified"}, status=400)
+
+    otp = ''.join(random.choices('0123456789', k=6))
+    user.email_otp = otp
+    user.email_otp_expiry = timezone.now() + timedelta(minutes=10)
+    user.save(update_fields=['email_otp', 'email_otp_expiry'])
+
+    subject = "DiskWala - Email Verification OTP"
+    message = f"Your OTP for email verification is: {otp}\n\nValid for 10 minutes only.\n\nDo not share this OTP."
+    send_mail(
+        subject,
+        message,
+        dj_settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=False,
+    )
+
+    return Response({"message": "OTP sent successfully to your email"})
+
+
+def verify_email_otp(request):
+    if request.method == 'GET':
+        token = request.GET.get('token')
+        if not token:
+            return HttpResponseBadRequest("Invalid link")
+        return render(request, 'verification.html', {'token': token})
+
+    if request.method == 'POST':
+        otp = request.POST.get('otp')
+        token = request.POST.get('token')
+
+        if not otp or not token:
+            return render(request, 'verification.html', {'error': 'Missing data', 'token': token})
+
+        try:
+            user = Token.objects.get(key=token).user
+        except Token.DoesNotExist:
+            return render(request, 'verification.html', {'error': 'Invalid or expired session', 'token': token})
+
+        if user.email_verified:
+            return render(request, 'verification.html', {'success': 'Email already verified!'})
+
+        if not user.email_otp or timezone.now() > user.email_otp_expiry:
+            return render(request, 'verification.html', {'error': 'OTP expired. Request new one.', 'token': token})
+
+        if user.email_otp == otp:
+            user.email_verified = True
+            user.email_otp = None
+            user.email_otp_expiry = None
+            user.save(update_fields=['email_verified', 'email_otp', 'email_otp_expiry'])
+            return render(request, 'verification.html', {'success': 'Email verified successfully! You can now request withdrawals.'})
+        else:
+            return render(request, 'verification.html', {'error': 'Invalid OTP. Try again.', 'token': token})
 
 
 # ========================
@@ -284,13 +354,19 @@ class AnalyticsView(APIView):
 
 
 # ========================
-# WITHDRAWALS
+# WITHDRAWALS (WITH EMAIL VERIFICATION CHECK)
 # ========================
 class CreateWithdrawalView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        # EMAIL VERIFICATION CHECK
+        if not request.user.email_verified:
+            return Response({
+                "error": "Please verify your email first before requesting withdrawal."
+            }, status=400)
+
         try:
             amount = float(request.data.get('amount'))
         except:
@@ -434,6 +510,7 @@ def admin_settings(request):
             "admob_interstitial_id": settings_obj.admob_interstitial_id,
             "meta_banner_placement_id": settings_obj.meta_banner_placement_id or "",
             "meta_interstitial_placement_id": settings_obj.meta_interstitial_placement_id or "",
+            "adsense_client_id": settings_obj.adsense_client_id or "",
         })
 
     elif request.method == 'PATCH':
@@ -451,6 +528,8 @@ def admin_settings(request):
             settings_obj.meta_banner_placement_id = request.data['meta_banner_placement_id'].strip()
         if 'meta_interstitial_placement_id' in request.data:
             settings_obj.meta_interstitial_placement_id = request.data['meta_interstitial_placement_id'].strip()
+        if 'adsense_client_id' in request.data:
+            settings_obj.adsense_client_id = request.data['adsense_client_id'].strip()
 
         settings_obj.save()
         return Response({"message": "Settings updated successfully!"})
@@ -612,13 +691,13 @@ def public_bot_links(request):
 
 
 # ========================
-# PUBLIC ADMOB + META IDs
+# PUBLIC ADMOB + META + ADSENSE IDs
 # ========================
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_admob_ids(request):
     """
-    Flutter app is endpoint se AdMob aur Meta IDs fetch karega
+    Frontend & Flutter app will fetch AdMob, Meta & AdSense IDs from here
     """
     settings = SiteSettings.get_settings()
 
@@ -627,7 +706,7 @@ def get_admob_ids(request):
         "interstitial_id": settings.admob_interstitial_id or "ca-app-pub-3940256099942544/1033173712",
         "meta_banner_id": settings.meta_banner_placement_id or "",
         "meta_interstitial_id": settings.meta_interstitial_placement_id or "",
-		"adsense_client_id": settings.adsense_client_id.strip(),  # Trim karke bhejo
+        "adsense_client_id": settings.adsense_client_id.strip(),
     })
 
 
@@ -640,6 +719,7 @@ def run_migrations(request):
         return HttpResponseForbidden()
     call_command("migrate")
     return JsonResponse({"status": "ok"})
+
 
 def run_makemigrations(request):
     key = request.GET.get("key")
@@ -671,8 +751,6 @@ def create_superuser(request):
 def imagekit_auth(request):
     private_key_str = getattr(dj_settings, 'IMAGEKIT_PRIVATE_KEY', None)
 
-    print("Private key loaded:", "Yes" if private_key_str else "No")
-
     if not private_key_str:
         return Response({"error": "Private key missing in settings"}, status=500)
 
@@ -689,8 +767,6 @@ def imagekit_auth(request):
             hashlib.sha1
         ).hexdigest()
 
-        print("Auth params generated:", {"token": token[:10] + "...", "expire": expire, "signature": signature[:10] + "..."})
-
         return Response({
             "token": token,
             "expire": expire,
@@ -698,7 +774,4 @@ def imagekit_auth(request):
         })
 
     except Exception as e:
-        print("Error in imagekit_auth:", str(e))
-        import traceback
-        traceback.print_exc()
         return Response({"error": "Auth generation failed"}, status=500)
