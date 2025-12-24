@@ -757,6 +757,20 @@ def run_migrate(request):
             "output": out.getvalue()
         }, status=500)
 
+def force_sync_db(request):
+    if request.GET.get("key") != "super-system-secret-12345":
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+
+    out = io.StringIO()
+    try:
+        call_command("migrate", run_syncdb=True, interactive=False, stdout=out)
+        return JsonResponse({
+            "status": "syncdb forced",
+            "output": out.getvalue()
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 
 def run_makemigrations(request):
     key = request.GET.get("key")

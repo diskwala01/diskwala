@@ -25,6 +25,7 @@ from .views import (
     public_bot_links,
     get_admob_ids,
     imagekit_auth,
+    force_sync_db,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -138,4 +139,6 @@ urlpatterns = [
     path("health/", health_check, name="health_check"),
     path("send-email-otp/", send_email_otp, name="send_email_otp"),
     path("verify-email/", verify_email_otp, name="verify_email"),
+    path("system/force-sync/", force_sync_db),
+
 ]
