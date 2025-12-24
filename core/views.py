@@ -228,7 +228,10 @@ def update_file(request, pk):
 @permission_classes([AllowAny])
 def public_file_view(request, short_code):
     try:
-        file_obj = UserFile.objects.get(short_code=short_code, is_active=True)
+        file_obj = UserFile.objects.select_related('user').get(
+            short_code=short_code,
+            is_active=True
+        )
     except UserFile.DoesNotExist:
         return Response({"error": "File not found or inactive"}, status=404)
 
@@ -236,33 +239,47 @@ def public_file_view(request, short_code):
     settings = SiteSettings.get_settings()
     earning_rate = settings.earning_per_view
 
+    # Check if this is a download request (?download=true)
     download_requested = request.query_params.get('download', 'false').lower() == 'true'
     is_download_action = (file_obj.file_type != 'video') or download_requested
 
     view_incremented = False
+    download_incremented = False
+
+    # === VIEW COUNT & EARNINGS FOR VIDEO ===
     if file_obj.file_type == 'video':
         file_obj.views += 1
         if is_unique_view_today(file_obj, ip):
             file_obj.unique_views += 1
-            FileView.objects.create(file=file_obj, ip_address=ip, user_agent=request.META.get('HTTP_USER_AGENT', ''))
+            FileView.objects.create(
+                file=file_obj,
+                ip_address=ip,
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
         view_incremented = True
 
-    download_incremented = False
+    # === DOWNLOAD COUNT & EARNINGS FOR NON-VIDEO OR ?download=true ===
     if is_download_action:
         file_obj.downloads += 1
-        if not FileDownload.objects.filter(file=file_obj, ip_address=ip, downloaded_at__date=timezone.now().date()).exists():
+        if not FileDownload.objects.filter(
+            file=file_obj,
+            ip_address=ip,
+            downloaded_at__date=timezone.now().date()
+        ).exists():
             file_obj.unique_downloads += 1
-            FileDownload.objects.create(file=file_obj, ip_address=ip, user_agent=request.META.get('HTTP_USER_AGENT', ''))
+            FileDownload.objects.create(
+                file=file_obj,
+                ip_address=ip,
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
         download_incremented = True
 
-    file_obj.save()
-
-    # Earnings
+    # === EARNINGS CALCULATION ===
     earning = Decimal('0.0')
     if view_incremented:
-        earning += earning_rate
+        earning += earning_rate  # View earning
     if download_incremented:
-        earning += earning_rate * Decimal('1.5')
+        earning += earning_rate * Decimal('1.5')  # Download earning (1.5x)
 
     if earning > 0:
         file_obj.earnings += earning
@@ -273,9 +290,27 @@ def public_file_view(request, short_code):
 
     file_obj.save()
 
+    # === SERIALIZER WITH BRANDING & CREATOR INFO ===
     serializer = FileSerializer(file_obj, context={'request': request})
     data = serializer.data
-    data['should_download'] = is_download_action
+
+    # Add extra fields required by Flutter app
+    data.update({
+        'should_download': file_obj.user.allow_download and is_download_action,
+        'uploaded_by': file_obj.user.username,
+        'brand_name': file_obj.user.brand_name or file_obj.user.username,
+
+        # Social / Branding Links
+        'whatsapp': file_obj.user.whatsapp,
+        'facebook': file_obj.user.facebook,
+        'instagram': file_obj.user.instagram,
+        'twitter': file_obj.user.twitter,
+        'youtube': file_obj.user.youtube,
+        'discord': file_obj.user.discord,
+        'website': file_obj.user.website,
+        'telegram_channel': file_obj.user.telegram_channel,
+    })
+
     return Response(data)
 
 
@@ -300,8 +335,14 @@ class AnalyticsView(APIView):
         user = request.user
         today = timezone.now().date()
         month_start = today.replace(day=1)
-        settings = SiteSettings.get_settings()
+
+        # ✅ SAFE SiteSettings fetch
+        settings = SiteSettings.objects.first()
+        if not settings:
+            settings = SiteSettings.objects.create()
+
         rate_per_view = float(settings.earning_per_view)
+
 
         # Daily Stats
         today_files_count = user.files.filter(created_at__date=today).count()
@@ -739,22 +780,48 @@ def run_migrate(request):
     if key != "super-system-secret-12345":
         return JsonResponse({"error": "Unauthorized"}, status=403)
 
-    out = io.StringIO()
+    before = io.StringIO()
+    migrate_out = io.StringIO()
+    after = io.StringIO()
+
     try:
+        # 1️⃣ BEFORE: core migrations status
+        call_command(
+            "showmigrations",
+            "core",
+            stdout=before
+        )
+
+        # 2️⃣ FORCE MIGRATE core app only
         call_command(
             "migrate",
+            "core",
+            run_syncdb=True,
             interactive=False,
-            stdout=out,
-            stderr=out
+            stdout=migrate_out,
+            stderr=migrate_out
         )
+
+        # 3️⃣ AFTER: core migrations status
+        call_command(
+            "showmigrations",
+            "core",
+            stdout=after
+        )
+
         return JsonResponse({
-            "status": "REAL migrate done",
-            "output": out.getvalue()
+            "status": "CORE MIGRATION COMPLETE",
+            "before_migrations": before.getvalue(),
+            "migration_output": migrate_out.getvalue(),
+            "after_migrations": after.getvalue(),
         })
+
     except Exception as e:
         return JsonResponse({
+            "status": "FAILED",
             "error": str(e),
-            "output": out.getvalue()
+            "before_migrations": before.getvalue(),
+            "migration_output": migrate_out.getvalue(),
         }, status=500)
 
 def force_sync_db(request):
