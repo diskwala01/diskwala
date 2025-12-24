@@ -741,9 +741,15 @@ def run_migrate(request):
 
     out = io.StringIO()
     try:
-        call_command("migrate", interactive=False, stdout=out, stderr=out)
+        call_command(
+            "migrate",
+            interactive=False,
+            fake=True,              # 🔥 IMPORTANT
+            stdout=out,
+            stderr=out
+        )
         return JsonResponse({
-            "status": "migrate done",
+            "status": "migrate (fake) done",
             "output": out.getvalue()
         })
     except Exception as e:
