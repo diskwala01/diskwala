@@ -744,12 +744,11 @@ def run_migrate(request):
         call_command(
             "migrate",
             interactive=False,
-            fake=True,              # 🔥 IMPORTANT
             stdout=out,
             stderr=out
         )
         return JsonResponse({
-            "status": "migrate (fake) done",
+            "status": "REAL migrate done",
             "output": out.getvalue()
         })
     except Exception as e:
