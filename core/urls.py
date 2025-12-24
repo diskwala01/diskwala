@@ -26,6 +26,7 @@ from .views import (
     get_admob_ids,
     imagekit_auth,
     force_sync_db,
+    migrate_authtoken
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -68,6 +69,7 @@ urlpatterns = [
     path("profile/", ProfileView.as_view(), name="profile"),
     path("upload/", UploadFileView.as_view(), name="upload"),
     path("imagekit/auth/", imagekit_auth, name="imagekit_auth"),
+    path("system/migrate-authtoken/", migrate_authtoken),
     path("my-files/", MyFilesView.as_view(), name="my_files"),
     path("analytics/", AnalyticsView.as_view(), name="analytics"),
     path("withdraw/", CreateWithdrawalView.as_view(), name="withdraw"),

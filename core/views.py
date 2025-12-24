@@ -774,6 +774,13 @@ def get_admob_ids(request):
 def health_check(request):
     return JsonResponse({"status": "ok"})
 
+def migrate_authtoken(request):
+    if request.GET.get("key") != "super-system-secret-12345":
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+
+    call_command("migrate", "authtoken")
+    return JsonResponse({"status": "authtoken migrated"})
+
 
 def run_migrate(request):
     if request.GET.get("key") != "super-system-secret-12345":
