@@ -833,3 +833,11 @@ def change_email(request):
     user.email_verified = False  # नया email → re-verify करवाओ
     user.save()
     return Response({"message": "Email updated successfully. Please re-verify your email."})
+
+@api_view(['DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def delete_my_file(request, pk):
+    file_obj = get_object_or_404(UserFile, pk=pk, user=request.user)  # Sirf apni file
+    file_obj.delete()
+    return Response({"message": "File deleted successfully"})
