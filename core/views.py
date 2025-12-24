@@ -799,3 +799,37 @@ def imagekit_auth(request):
 
     except Exception as e:
         return Response({"error": "Auth generation failed"}, status=500)
+    
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    user = request.user
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not user.check_password(old_password):
+        return Response({"error": "Current password is incorrect"}, status=400)
+
+    user.set_password(new_password)
+    user.save()
+    return Response({"message": "Password changed successfully"})
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def change_email(request):
+    user = request.user
+    current_password = request.data.get('current_password')
+    new_email = request.data.get('new_email')
+
+    if not user.check_password(current_password):
+        return Response({"error": "Current password is incorrect"}, status=400)
+
+    if User.objects.filter(email__iexact=new_email).exclude(pk=user.pk).exists():
+        return Response({"error": "Email already in use"}, status=400)
+
+    user.email = new_email
+    user.email_verified = False  # नया email → re-verify करवाओ
+    user.save()
+    return Response({"message": "Email updated successfully. Please re-verify your email."})
