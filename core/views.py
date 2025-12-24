@@ -776,8 +776,7 @@ def health_check(request):
 
 
 def run_migrate(request):
-    key = request.GET.get("key")
-    if key != "super-system-secret-12345":
+    if request.GET.get("key") != "super-system-secret-12345":
         return JsonResponse({"error": "Unauthorized"}, status=403)
 
     before = io.StringIO()
@@ -785,32 +784,23 @@ def run_migrate(request):
     after = io.StringIO()
 
     try:
-        # 1️⃣ BEFORE: core migrations status
-        call_command(
-            "showmigrations",
-            "core",
-            stdout=before
-        )
+        # BEFORE
+        call_command("showmigrations", "core", stdout=before)
 
-        # 2️⃣ FORCE MIGRATE core app only
+        # NORMAL migrate (Django smartly decides)
         call_command(
             "migrate",
             "core",
-            run_syncdb=True,
             interactive=False,
             stdout=migrate_out,
             stderr=migrate_out
         )
 
-        # 3️⃣ AFTER: core migrations status
-        call_command(
-            "showmigrations",
-            "core",
-            stdout=after
-        )
+        # AFTER
+        call_command("showmigrations", "core", stdout=after)
 
         return JsonResponse({
-            "status": "CORE MIGRATION COMPLETE",
+            "status": "CORE MIGRATION CHECK DONE",
             "before_migrations": before.getvalue(),
             "migration_output": migrate_out.getvalue(),
             "after_migrations": after.getvalue(),
