@@ -26,7 +26,7 @@ from .views import (
     get_admob_ids,
     imagekit_auth,
     force_sync_db,
-    migrate_authtoken
+    migrate_authtoken,
 
     # ========================
     # ADMIN AUTH & PANEL
