@@ -85,6 +85,14 @@ class ProfileView(APIView):
     def get(self, request):
         return Response(UserProfileSerializer(request.user).data)
 
+    def patch(self, request):  # ← NAYA: Update allow karne ke liye
+        user = request.user
+        serializer = UserProfileSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])

@@ -17,6 +17,15 @@ def generate_short_code():
 
 class User(AbstractUser):
     brand_name = models.CharField(max_length=100, blank=True, default="My Drive")
+    
+    # NEW: Multiple social links
+    whatsapp = models.URLField(blank=True, null=True)
+    facebook = models.URLField(blank=True, null=True)
+    instagram = models.URLField(blank=True, null=True)
+    twitter = models.URLField(blank=True, null=True)
+    youtube = models.URLField(blank=True, null=True)
+    discord = models.URLField(blank=True, null=True)
+    website = models.URLField(blank=True, null=True, help_text="Personal website/blog")
     email_verified = models.BooleanField(default=False)
     email_otp = models.CharField(max_length=6, blank=True, null=True)
     email_otp_expiry = models.DateTimeField(null=True, blank=True)

@@ -11,9 +11,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'brand_name', 'telegram_channel',
-            'support_link', 'allow_download', 'total_earnings',
-            'pending_earnings', 'paid_earnings', 'api_key', 'email_verified'
+            'id', 'username', 'email', 'brand_name',
+            'whatsapp', 'facebook', 'instagram', 'twitter',
+            'youtube', 'discord', 'website',
+            'telegram_channel', 'support_link', 'allow_download',
+            'total_earnings', 'pending_earnings', 'paid_earnings',
+            'api_key', 'email_verified'
         ]
         read_only_fields = ['total_earnings', 'pending_earnings', 'paid_earnings', 'api_key']
 
