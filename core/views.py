@@ -137,40 +137,28 @@ def send_email_otp(request):
             print("Response:", e.response.text)
         return Response({"error": "Failed to send OTP. Please try again later."}, status=500)
 
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def verify_email_otp(request):
-    if request.method == 'GET':
-        token = request.GET.get('token')
-        if not token:
-            return HttpResponseBadRequest("Invalid link")
-        return render(request, 'verification.html', {'token': token})
+    otp = request.data.get('otp')
+    user = request.user
 
-    if request.method == 'POST':
-        otp = request.POST.get('otp')
-        token = request.POST.get('token')
+    if user.email_verified:
+        return Response({"error": "Email already verified"}, status=400)
 
-        if not otp or not token:
-            return render(request, 'verification.html', {'error': 'Missing data', 'token': token})
+    if not otp or otp != user.email_otp:
+        return Response({"error": "Invalid OTP"}, status=400)
 
-        try:
-            user = Token.objects.get(key=token).user
-        except Token.DoesNotExist:
-            return render(request, 'verification.html', {'error': 'Invalid or expired session', 'token': token})
+    if timezone.now() > user.email_otp_expiry:
+        return Response({"error": "OTP expired"}, status=400)
 
-        if user.email_verified:
-            return render(request, 'verification.html', {'success': 'Email already verified!'})
+    user.email_verified = True
+    user.email_otp = None
+    user.email_otp_expiry = None
+    user.save(update_fields=['email_verified', 'email_otp', 'email_otp_expiry'])
 
-        if not user.email_otp or timezone.now() > user.email_otp_expiry:
-            return render(request, 'verification.html', {'error': 'OTP expired. Request new one.', 'token': token})
-
-        if user.email_otp == otp:
-            user.email_verified = True
-            user.email_otp = None
-            user.email_otp_expiry = None
-            user.save(update_fields=['email_verified', 'email_otp', 'email_otp_expiry'])
-            return render(request, 'verification.html', {'success': 'Email verified successfully! You can now request withdrawals.'})
-        else:
-            return render(request, 'verification.html', {'error': 'Invalid OTP. Try again.', 'token': token})
-
+    return Response({"message": "Email verified successfully!"})
 
 # ========================
 # FILE UPLOAD & PUBLIC VIEW
