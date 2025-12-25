@@ -8,15 +8,16 @@ User = get_user_model()
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    whatsapp = serializers.URLField(required=False, allow_blank=True, allow_null=True)
-    facebook = serializers.URLField(required=False, allow_blank=True, allow_null=True)
-    instagram = serializers.URLField(required=False, allow_blank=True, allow_null=True)
-    twitter = serializers.URLField(required=False, allow_blank=True, allow_null=True)
-    youtube = serializers.URLField(required=False, allow_blank=True, allow_null=True)
-    discord = serializers.URLField(required=False, allow_blank=True, allow_null=True)
-    website = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    whatsapp = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    facebook = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    instagram = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    twitter = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    youtube = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    website = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
     telegram_channel = serializers.URLField(required=False, allow_blank=True, allow_null=True)
     support_link = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+
     brand_name = serializers.CharField(required=False, allow_blank=True, max_length=100)
 
     class Meta:
@@ -24,7 +25,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'brand_name',
             'whatsapp', 'facebook', 'instagram', 'twitter',
-            'youtube', 'discord', 'website',
+            'youtube', 'website',
             'telegram_channel', 'support_link', 'allow_download',
             'total_earnings', 'pending_earnings', 'paid_earnings',
             'api_key', 'email_verified'
@@ -32,22 +33,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['total_earnings', 'pending_earnings', 'paid_earnings', 'api_key']
 
     def to_internal_value(self, data):
-        # Safety check: data must be dict
         if not isinstance(data, dict):
             return super().to_internal_value(data)
 
-        # Empty strings ko None bana do
-        url_fields = [
-            'whatsapp', 'facebook', 'instagram', 'twitter', 'youtube',
-            'discord', 'website', 'telegram_channel', 'support_link'
-        ]
-        for field in url_fields:
+        for field in [
+            'whatsapp', 'facebook', 'instagram', 'twitter',
+            'youtube', 'website',
+            'telegram_channel', 'support_link'
+        ]:
             if field in data and data[field] == '':
                 data[field] = None
-
-        # Brand name khali ho to default set kar sakte ho (optional)
-        if 'brand_name' in data and data['brand_name'].strip() == '':
-            data['brand_name'] = "My Drive"
 
         return super().to_internal_value(data)
 

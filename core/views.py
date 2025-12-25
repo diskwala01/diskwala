@@ -15,6 +15,7 @@ import hashlib
 import requests
 import hmac
 import binascii
+from django.db import connection
 from datetime import timedelta
 from decimal import Decimal
 
@@ -77,7 +78,6 @@ class RegisterView(APIView):
         user = User.objects.create_user(username=username, email=email, password=password)
         return Response({"message": "Registered successfully!", "username": user.username}, status=201)
 
-
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -86,21 +86,43 @@ class ProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        user = request.user
-        serializer = UserProfileSerializer(user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        print("📩 PATCH REQUEST DATA:", request.data)
 
-    def put(self, request):
         user = request.user
-        serializer = UserProfileSerializer(user, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        data = request.data
+
+        # Manual update – yeh guaranteed DB mein save karega
+        if 'brand_name' in data:
+            user.brand_name = data['brand_name'].strip() if data['brand_name'] else "My Drive"
+
+        if 'instagram' in data:
+            user.instagram = data['instagram'] if data['instagram'] else None
+        if 'whatsapp' in data:
+            user.whatsapp = data['whatsapp'] if data['whatsapp'] else None
+        if 'facebook' in data:
+            user.facebook = data['facebook'] if data['facebook'] else None
+        if 'twitter' in data:
+            user.twitter = data['twitter'] if data['twitter'] else None
+        if 'youtube' in data:
+            user.youtube = data['youtube'] if data['youtube'] else None
+        if 'website' in data:
+            user.website = data['website'] if data['website'] else None
+
+        # Explicit save
+        user.save(update_fields=[
+            'brand_name', 'instagram', 'whatsapp', 'facebook',
+            'twitter', 'youtube', 'website'
+        ])
+
+        # Confirm from DB
+        user.refresh_from_db()
+
+        print("✅ MANUAL SAVE SUCCESS:")
+        print("   brand_name:", user.brand_name)
+        print("   instagram:", user.instagram)
+
+        return Response(UserProfileSerializer(user).data)
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
