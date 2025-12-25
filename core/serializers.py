@@ -8,6 +8,20 @@ User = get_user_model()
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    # Manually override URL fields to allow empty strings & convert to None
+    whatsapp = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    facebook = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    instagram = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    twitter = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    youtube = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    discord = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    website = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    telegram_channel = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    support_link = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+
+    # Brand name ko bhi blank allow karo
+    brand_name = serializers.CharField(required=False, allow_blank=True, max_length=100)
+
     class Meta:
         model = User
         fields = [
@@ -19,6 +33,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'api_key', 'email_verified'
         ]
         read_only_fields = ['total_earnings', 'pending_earnings', 'paid_earnings', 'api_key']
+
+    # Optional: Empty strings ko None bana do (database clean rahega)
+    def to_internal_value(self, data):
+        for field in ['whatsapp', 'facebook', 'instagram', 'twitter', 'youtube',
+                      'discord', 'website', 'telegram_channel', 'support_link']:
+            if data.get(field) == '':
+                data[field] = None
+        return super().to_internal_value(data)
 
 
 class FileSerializer(serializers.ModelSerializer):
