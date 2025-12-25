@@ -336,7 +336,6 @@ def public_file_view(request, short_code):
         'instagram': file_obj.user.instagram,
         'twitter': file_obj.user.twitter,
         'youtube': file_obj.user.youtube,
-        'discord': file_obj.user.discord,
         'website': file_obj.user.website,
         'telegram_channel': file_obj.user.telegram_channel,
     })
