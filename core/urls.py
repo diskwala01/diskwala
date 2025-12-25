@@ -27,6 +27,8 @@ from .views import (
     imagekit_auth,
     force_sync_db,
     migrate_authtoken,
+    forgot_password,
+    reset_password,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -142,5 +144,7 @@ urlpatterns = [
     path("send-email-otp/", send_email_otp, name="send_email_otp"),
     path("verify-email/", verify_email_otp, name="verify_email"),
     path("system/force-sync/", force_sync_db),
+    path("forgot-password/", forgot_password, name="forgot_password"),
+    path("reset-password/", reset_password, name="reset_password"),
 
 ]

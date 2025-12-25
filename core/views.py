@@ -932,3 +932,89 @@ def delete_my_file(request, pk):
     file_obj = get_object_or_404(UserFile, pk=pk, user=request.user)  # Sirf apni file
     file_obj.delete()
     return Response({"message": "File deleted successfully"})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    email = request.data.get('email')
+    if not email:
+        return Response({"error": "Email is required"}, status=400)
+
+    try:
+        user = User.objects.get(email__iexact=email)
+    except User.DoesNotExist:
+        # Security: Same message even if user not exist (prevent enumeration)
+        return Response({"message": "If email exists, OTP has been sent."})
+
+    # Generate OTP
+    otp = ''.join(random.choices(string.digits, k=6))
+    user.email_otp = otp
+    user.email_otp_expiry = timezone.now() + timedelta(minutes=10)
+    user.save(update_fields=['email_otp', 'email_otp_expiry'])
+
+    # Send Email via Brevo
+    api_key = os.environ.get("BREVO_API_KEY")
+    if not api_key:
+        return Response({"error": "Email service not configured"}, status=500)
+
+    url = "https://api.brevo.com/v3/smtp/email"
+    payload = {
+        "sender": {"name": "DiskWala", "email": "diskwala01@gmail.com"},
+        "to": [{"email": user.email, "name": user.username}],
+        "subject": "DiskWala - Password Reset OTP",
+        "htmlContent": f"""
+        <html>
+          <body>
+            <h2>Password Reset Request</h2>
+            <p>Your OTP for password reset is: <strong style="font-size:1.5em">{otp}</strong></p>
+            <p>This OTP is valid for <strong>10 minutes</strong> only.</p>
+            <p>If you didn't request this, ignore this email.</p>
+            <br>
+            <p>Thanks,<br>DiskWala Team</p>
+          </body>
+        </html>
+        """
+    }
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response.raise_for_status()
+        return Response({"message": "If email exists, OTP has been sent."})
+    except requests.exceptions.RequestException as e:
+        print("Brevo Error:", e)
+        return Response({"error": "Failed to send OTP"}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+    email = request.data.get('email')
+    otp = request.data.get('otp')
+    new_password = request.data.get('new_password')
+
+    if not all([email, otp, new_password]):
+        return Response({"error": "All fields required"}, status=400)
+
+    try:
+        user = User.objects.get(email__iexact=email)
+    except User.DoesNotExist:
+        return Response({"error": "Invalid request"}, status=400)
+
+    if user.email_otp != otp:
+        return Response({"error": "Invalid OTP"}, status=400)
+
+    if timezone.now() > user.email_otp_expiry:
+        return Response({"error": "OTP expired"}, status=400)
+
+    # Success: Set new password
+    user.set_password(new_password)
+    user.email_otp = None
+    user.email_otp_expiry = None
+    user.save()
+
+    return Response({"message": "Password reset successfully! You can now login."})
