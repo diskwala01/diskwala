@@ -30,6 +30,7 @@ from .views import (
     forgot_password,
     reset_password,
     user_files_view,
+    increment_view,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -148,5 +149,6 @@ urlpatterns = [
     path("forgot-password/", forgot_password, name="forgot_password"),
     path("reset-password/", reset_password, name="reset_password"),
     path("user-files/<str:username>/", user_files_view, name="user_files"),
+    path('view/<str:short_code>/', increment_view, name='increment_view'),
 
 ]

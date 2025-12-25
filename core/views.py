@@ -362,6 +362,40 @@ def user_files_view(request, username):
     except Exception as e:
         return Response({'error': str(e)}, status=404)
 
+# ========================
+# VIEW INCREMENT ENDPOINT (FOR FLUTTER APP)
+# ========================
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def increment_view(request, short_code):
+    """
+    Flutter app se call hoga jab video 50% se zyada dekh li jaye
+    POST /api/view/ABC12345/
+    """
+    try:
+        file = UserFile.objects.get(short_code=short_code, is_active=True)
+    except UserFile.DoesNotExist:
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Simple view count badhao (har call par +1)
+    file.views += 1
+    file.save(update_fields=['views'])
+
+    # Optional: Earnings recalculate karo (per view basis pe)
+    from .services import calculate_earnings_per_view
+    new_earnings = calculate_earnings_per_view(file.views)
+    if new_earnings > file.earnings:
+        added = new_earnings - file.earnings
+        file.earnings = new_earnings
+        file.user.pending_earnings += Decimal(str(added))
+        file.user.save(update_fields=['pending_earnings'])
+        file.save(update_fields=['earnings'])
+
+    return Response({
+        "message": "View counted",
+        "views": file.views,
+        "earnings": float(file.earnings)
+    })
 
 # ========================
 # USER DASHBOARD VIEWS
