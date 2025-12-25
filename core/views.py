@@ -354,8 +354,7 @@ def user_files_view(request, username):
         user = get_object_or_404(User, username=username)
         files = UserFile.objects.filter(
             user=user,
-            is_active=True,
-            file_type='video'  # Sirf videos
+            is_active=True,  # Sirf videos
         ).order_by('-views', '-created_at')[:12]  # Top 12 by views, newest
         
         serializer = FileSerializer(files, many=True, context={'request': request})
