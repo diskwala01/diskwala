@@ -342,6 +342,27 @@ def public_file_view(request, short_code):
 
     return Response(data)
 
+# 🚀 YE NAYA VIEW public_file_view के BAAD add karo (line 350-370 के around)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def user_files_view(request, username):
+    """
+    Username se user ki saari active video files return karo
+    URL: /api/user-files/{username}/
+    """
+    try:
+        user = get_object_or_404(User, username=username)
+        files = UserFile.objects.filter(
+            user=user,
+            is_active=True,
+            file_type='video'  # Sirf videos
+        ).order_by('-views', '-created_at')[:12]  # Top 12 by views, newest
+        
+        serializer = FileSerializer(files, many=True, context={'request': request})
+        return Response({'files': serializer.data})
+    except Exception as e:
+        return Response({'error': str(e)}, status=404)
+
 
 # ========================
 # USER DASHBOARD VIEWS

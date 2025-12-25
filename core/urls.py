@@ -29,6 +29,7 @@ from .views import (
     migrate_authtoken,
     forgot_password,
     reset_password,
+    user_files_view,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -146,5 +147,6 @@ urlpatterns = [
     path("system/force-sync/", force_sync_db),
     path("forgot-password/", forgot_password, name="forgot_password"),
     path("reset-password/", reset_password, name="reset_password"),
+    path("user-files/<str:username>/", user_files_view, name="user_files"),
 
 ]
