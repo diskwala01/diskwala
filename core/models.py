@@ -161,7 +161,12 @@ class SiteSettings(models.Model):
     earning_per_view = models.DecimalField(max_digits=8, decimal_places=6, default=0.002500)
     min_withdrawal = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
     site_name = models.CharField(max_length=100, default="dSkWala")
-
+    earning_per_download = models.DecimalField(          # ← YE NAYA FIELD
+        max_digits=8, 
+        decimal_places=6, 
+        default=0.001000, 
+        help_text="Earning per unique download (e.g., 0.001000 = $1 per 1000 downloads)"
+    )
     adsense_client_id = models.CharField(
         max_length=100,
         blank=True,

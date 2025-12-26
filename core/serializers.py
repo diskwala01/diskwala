@@ -98,6 +98,7 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
         model = SiteSettings
         fields = [
             'earning_per_view',
+            'earning_per_download',
             'min_withdrawal',
             'site_name',
             'adsense_client_id',
