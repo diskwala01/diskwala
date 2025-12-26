@@ -89,3 +89,22 @@ class BotLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = BotLink
         fields = '__all__'
+
+# core/serializers.py → END MEIN ADD KARO
+
+class SiteSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiteSettings
+        fields = [
+            'earning_per_view',
+            'min_withdrawal',
+            'site_name',
+            'adsense_client_id',
+            'meta_banner_placement_id',
+            'meta_interstitial_placement_id',
+            'admob_banner_id',
+            'admob_interstitial_id',
+            'instagram_link',      # ← YE TEEN NAYE
+            'telegram_link',
+            'youtube_link',
+        ]

@@ -650,20 +650,25 @@ def admin_settings(request):
             "earning_per_view": float(settings_obj.earning_per_view),
             "min_withdrawal": float(settings_obj.min_withdrawal),
             "site_name": settings_obj.site_name,
-            "admob_banner_id": settings_obj.admob_banner_id,
-            "admob_interstitial_id": settings_obj.admob_interstitial_id,
+            "admob_banner_id": settings_obj.admob_banner_id or "",
+            "admob_interstitial_id": settings_obj.admob_interstitial_id or "",
             "meta_banner_placement_id": settings_obj.meta_banner_placement_id or "",
             "meta_interstitial_placement_id": settings_obj.meta_interstitial_placement_id or "",
             "adsense_client_id": settings_obj.adsense_client_id or "",
+            # NAYE SOCIAL LINKS ADD KIYE
+            "instagram_link": settings_obj.instagram_link or "",
+            "telegram_link": settings_obj.telegram_link or "",
+            "youtube_link": settings_obj.youtube_link or "",
         })
 
     elif request.method == 'PATCH':
+        # Existing fields
         if 'earning_per_view' in request.data:
             settings_obj.earning_per_view = Decimal(str(request.data['earning_per_view']))
         if 'min_withdrawal' in request.data:
             settings_obj.min_withdrawal = Decimal(str(request.data['min_withdrawal']))
         if 'site_name' in request.data:
-            settings_obj.site_name = request.data['site_name']
+            settings_obj.site_name = request.data['site_name'].strip()
         if 'admob_banner_id' in request.data:
             settings_obj.admob_banner_id = request.data['admob_banner_id'].strip()
         if 'admob_interstitial_id' in request.data:
@@ -675,8 +680,19 @@ def admin_settings(request):
         if 'adsense_client_id' in request.data:
             settings_obj.adsense_client_id = request.data['adsense_client_id'].strip()
 
+        # NAYE SOCIAL LINKS HANDLE KIYE
+        if 'instagram_link' in request.data:
+            settings_obj.instagram_link = request.data['instagram_link'].strip()
+        if 'telegram_link' in request.data:
+            settings_obj.telegram_link = request.data['telegram_link'].strip()
+        if 'youtube_link' in request.data:
+            settings_obj.youtube_link = request.data['youtube_link'].strip()
+
         settings_obj.save()
-        return Response({"message": "Settings updated successfully!"})
+
+        return Response({
+            "message": "All settings saved successfully!"
+        }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -851,6 +867,9 @@ def get_admob_ids(request):
         "meta_banner_id": settings.meta_banner_placement_id or "",
         "meta_interstitial_id": settings.meta_interstitial_placement_id or "",
         "adsense_client_id": settings.adsense_client_id.strip(),
+        'instagram_link': settings.instagram_link or "",
+        'telegram_link': settings.telegram_link or "",
+        'youtube_link': settings.youtube_link or "",
     })
 
 
