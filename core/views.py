@@ -1174,3 +1174,49 @@ def admin_notification_detail(request, pk):
     elif request.method == 'DELETE':
         notification.delete()
         return Response({"message": "Deleted successfully"})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def increment_download(request, short_code):
+    try:
+        file_obj = get_object_or_404(UserFile, short_code=short_code, is_active=True)
+        
+        ip = get_client_ip(request)
+        
+        # Unique download check (today ke basis par)
+        today = timezone.now().date()
+        already_downloaded = FileDownload.objects.filter(
+            file=file_obj,
+            ip_address=ip,
+            downloaded_at__date=today
+        ).exists()
+
+        if not already_downloaded:
+            # Increment counts
+            file_obj.downloads += 1
+            file_obj.unique_downloads += 1
+
+            # Calculate earning
+            settings = SiteSettings.get_settings()
+            earning_rate = settings.earning_per_download or Decimal('0.001000')
+            earning = Decimal('1') * earning_rate  # 1 unique download
+
+            file_obj.download_earnings += earning
+            file_obj.earnings += earning  # total earnings mein bhi add
+
+            # User ke earnings update
+            user = file_obj.user
+            user.pending_earnings += earning
+            user.total_earnings += earning
+
+            # Save all
+            file_obj.save(update_fields=['downloads', 'unique_downloads', 'download_earnings', 'earnings'])
+            user.save(update_fields=['pending_earnings', 'total_earnings'])
+
+            # Log download
+            FileDownload.objects.create(file=file_obj, ip_address=ip)
+
+        return Response({"message": "Download counted"}, status=200)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
