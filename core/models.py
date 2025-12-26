@@ -64,22 +64,19 @@ class UserFile(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='files')
     
-    # REMOVED: file = models.FileField(...)
-    # REMOVED: thumbnail = models.ImageField(...)
-    
     # NEW: External ImageKit URLs
     external_file_url = models.URLField(
         max_length=500,
-        blank=True,        # ← Yeh add karo (form mein optional)
-        null=True,         # ← Yeh add karo (database mein NULL allow karega)
-        default="",        # ← Optional: empty string as default
+        blank=True,
+        null=True,
+        default="",
         help_text="Direct ImageKit URL of the uploaded file"
     )
     external_thumbnail_url = models.URLField(
         max_length=500,
         blank=True,
         null=True,
-        default="",        # ya None rakh sakte ho
+        default="",
         help_text="ImageKit thumbnail URL (auto-generated for videos or custom)"
     )
     title = models.CharField(max_length=255)
@@ -107,7 +104,7 @@ class UserFile(models.Model):
 
     def public_url(self):
         from django.urls import reverse
-        return reverse('public_file_view', kwargs={'short_code': self.short_code})  # url name match karo
+        return reverse('public_file_view', kwargs={'short_code': self.short_code})
 
 
 class FileView(models.Model):
@@ -195,6 +192,23 @@ class SiteSettings(models.Model):
         blank=True,
         default="ca-app-pub-3940256099942544/1033173712",
         help_text="AdMob Interstitial Ad Unit ID"
+    )
+
+    # NEW: Global Social Links for "More" Screen in App
+    instagram_link = models.URLField(
+        blank=True,
+        default="",
+        help_text="Instagram profile or channel full URL (e.g. https://www.instagram.com/yourprofile)"
+    )
+    telegram_link = models.URLField(
+        blank=True,
+        default="",
+        help_text="Telegram channel or group full URL (e.g. https://t.me/yourchannel)"
+    )
+    youtube_link = models.URLField(
+        blank=True,
+        default="",
+        help_text="YouTube channel full URL (e.g. https://www.youtube.com/@yourchannel)"
     )
 
     class Meta:
