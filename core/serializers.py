@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import UserFile, Withdrawal, BotLink
+from .models import UserFile, Withdrawal, BotLink, SiteSettings
 
 User = get_user_model()
 
