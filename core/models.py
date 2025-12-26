@@ -237,3 +237,40 @@ class BotLink(models.Model):
 
     def __str__(self):
         return self.name
+
+# core/models.py → SiteSettings ke neeche add karo
+
+class BroadcastNotification(models.Model):
+    DURATION_CHOICES = (
+        (1, '1 Day'),
+        (3, '3 Days'),
+        (7, '7 Days'),
+        (30, '30 Days'),
+        (0, 'Forever'),  # 0 = no expiry
+    )
+
+    message = models.TextField(help_text="Notification message jo app mein dikhega")
+    link_url = models.URLField(blank=True, null=True, help_text="Optional link (khali chhodne par sirf message dikhega)")
+    link_text = models.CharField(max_length=50, blank=True, default="Open Link", help_text="Button ka text (jaise 'Visit Now')")
+    duration_days = models.IntegerField(choices=DURATION_CHOICES, default=7, help_text="Kitne din tak dikhega")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.duration_days == 0:
+            self.expires_at = None  # Forever
+        else:
+            self.expires_at = timezone.now() + timedelta(days=self.duration_days)
+        super().save(*args, **kwargs)
+
+    def is_expired(self):
+        if self.expires_at is None:
+            return False
+        return timezone.now() > self.expires_at
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.message[:50]

@@ -31,6 +31,9 @@ from .views import (
     reset_password,
     user_files_view,
     increment_view,
+    admin_notifications,
+    admin_notification_detail,
+    get_active_notification,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -150,5 +153,9 @@ urlpatterns = [
     path("reset-password/", reset_password, name="reset_password"),
     path("user-files/<str:username>/", user_files_view, name="user_files"),
     path('view/<str:short_code>/', increment_view, name='increment_view'),
+    # core/urls.py → urlpatterns mein add karo
+    path("notifications/", admin_notifications, name="admin_notifications"),
+    path("notifications/<int:pk>/", admin_notification_detail, name="admin_notification_detail"),
+    path("active-notification/", get_active_notification, name="active_notification"),
 
 ]

@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import UserFile, Withdrawal, BotLink, SiteSettings
+from .models import UserFile, Withdrawal, BotLink, SiteSettings, BroadcastNotification
 
 User = get_user_model()
 
@@ -108,3 +108,19 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'telegram_link',
             'youtube_link',
         ]
+
+# core/serializers.py → end mein add
+
+class BroadcastNotificationSerializer(serializers.ModelSerializer):
+    is_expired = serializers.BooleanField(read_only=True)
+    days_left = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BroadcastNotification
+        fields = ['id', 'message', 'link_url', 'link_text', 'duration_days', 'is_active', 'created_at', 'expires_at', 'is_expired', 'days_left']
+
+    def get_days_left(self, obj):
+        if obj.expires_at is None:
+            return None
+        delta = obj.expires_at - timezone.now()
+        return max(0, delta.days)

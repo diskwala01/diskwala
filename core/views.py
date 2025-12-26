@@ -40,7 +40,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.authtoken.models import Token
 
-from .models import UserFile, FileView, Withdrawal, SiteSettings, BotLink, FileDownload
+from .models import UserFile, FileView, Withdrawal, SiteSettings, BotLink, FileDownload, BroadcastNotification
 from .serializers import UserProfileSerializer, FileSerializer, WithdrawalSerializer, BotLinkSerializer
 from .services import calculate_earnings_per_view
 from .utils import get_client_ip, is_unique_view_today
@@ -1120,3 +1120,57 @@ def reset_password(request):
     user.save()
 
     return Response({"message": "Password reset successfully! You can now login."})
+
+# core/views.py → end mein add karo
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_active_notification(request):
+    try:
+        notification = BroadcastNotification.objects.filter(
+            is_active=True
+        ).exclude(expires_at__lt=timezone.now()).first()
+
+        if notification and not notification.is_expired():
+            serializer = BroadcastNotificationSerializer(notification)
+            return Response(serializer.data)
+        else:
+            return Response({"detail": "No active notification"}, status=404)
+    except:
+        return Response({"detail": "No active notification"}, status=404)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsSuperuser])
+def admin_notifications(request):
+    if request.method == 'GET':
+        notifications = BroadcastNotification.objects.all()
+        serializer = BroadcastNotificationSerializer(notifications, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = BroadcastNotificationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsSuperuser])
+def admin_notification_detail(request, pk):
+    try:
+        notification = BroadcastNotification.objects.get(pk=pk)
+    except BroadcastNotification.DoesNotExist:
+        return Response({"error": "Not found"}, status=404)
+
+    if request.method == 'PATCH':
+        serializer = BroadcastNotificationSerializer(notification, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    elif request.method == 'DELETE':
+        notification.delete()
+        return Response({"message": "Deleted successfully"})
