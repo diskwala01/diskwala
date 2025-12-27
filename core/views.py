@@ -1220,3 +1220,57 @@ def increment_download(request, short_code):
 
     except Exception as e:
         return Response({"error": str(e)}, status=400)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def billing_summary(request):
+    user = request.user
+
+    # =====================
+    # FILE LEVEL CALCULATION
+    # =====================
+    files = UserFile.objects.filter(user=user)
+
+    total_views = files.aggregate(v=Sum('views'))['v'] or 0
+    total_downloads = files.aggregate(d=Sum('downloads'))['d'] or 0
+
+    view_earnings = files.aggregate(e=Sum('earnings'))['e'] or Decimal('0')
+    download_earnings = files.aggregate(e=Sum('download_earnings'))['e'] or Decimal('0')
+
+    total_earnings = view_earnings + download_earnings
+
+    # =====================
+    # WITHDRAWALS
+    # =====================
+    withdrawn = Withdrawal.objects.filter(
+        user=user,
+        status='paid'
+    ).aggregate(a=Sum('amount'))['a'] or Decimal('0')
+
+    pending_withdrawals = Withdrawal.objects.filter(
+        user=user,
+        status='pending'
+    ).aggregate(a=Sum('amount'))['a'] or Decimal('0')
+
+    # =====================
+    # FINAL BALANCE
+    # =====================
+    withdrawable_balance = total_earnings - withdrawn - pending_withdrawals
+    if withdrawable_balance < 0:
+        withdrawable_balance = Decimal('0')
+
+    return Response({
+        "views": total_views,
+        "downloads": total_downloads,
+
+        "view_earnings": round(view_earnings, 5),
+        "download_earnings": round(download_earnings, 5),
+
+        "total_earnings": round(total_earnings, 5),
+
+        "withdrawn_amount": round(withdrawn, 5),
+        "pending_withdrawals": round(pending_withdrawals, 5),
+
+        "withdrawable_balance": round(withdrawable_balance, 5)
+    })

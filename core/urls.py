@@ -35,6 +35,7 @@ from .views import (
     admin_notification_detail,
     get_active_notification,
     increment_download,
+    billing_summary,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -159,5 +160,6 @@ urlpatterns = [
     path("admin/notifications/<int:pk>/", admin_notification_detail, name="admin_notification_detail"),
     path("admin/active-notification/", get_active_notification, name="active_notification"),
     path('download/<str:short_code>/', increment_download, name='increment_download'),
+    path("billing/summary/", billing_summary),
 
 ]
