@@ -138,6 +138,8 @@ class FileDownload(models.Model):
         return f"Download: {self.file.title} by {self.ip_address}"
 
 
+# core/models.py → Withdrawal model में ये changes करो
+
 class Withdrawal(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -145,16 +147,28 @@ class Withdrawal(models.Model):
         ('rejected', 'Rejected')
     )
 
+    PAYMENT_METHOD_CHOICES = (
+        ('upi', 'UPI'),
+        ('bank', 'Bank Transfer'),
+        # ('paypal', 'PayPal'),  # future ke liye
+    )
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawals')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_method = models.CharField(max_length=50, default="UPI/PayPal")
-    payment_details = models.TextField(blank=True)
+    
+    # NEW FIELDS
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='upi')
+    payment_details = models.JSONField(
+        default=dict,
+        help_text="Details like UPI ID, Bank Account, IFSC etc. stored as JSON"
+    )
+
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     requested_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.user} - {self.amount} - {self.status}"
+        return f"{self.user} - ${self.amount} - {self.get_payment_method_display()} - {self.status}"
 
 
 class SiteSettings(models.Model):

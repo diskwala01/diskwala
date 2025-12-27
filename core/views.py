@@ -500,39 +500,47 @@ class AnalyticsView(APIView):
 # ========================
 # WITHDRAWALS (WITH EMAIL VERIFICATION CHECK)
 # ========================
+# core/views.py → CreateWithdrawalView replace या add करें
+
 class CreateWithdrawalView(APIView):
-    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # EMAIL VERIFICATION CHECK
-        if not request.user.email_verified:
-            return Response({
-                "error": "Please verify your email first before requesting withdrawal."
-            }, status=400)
+        user = request.user
+        
+        # Email verification check
+        if not user.email_verified:
+            return Response({"error": "Please verify your email before withdrawing"}, status=400)
+
+        amount = request.data.get('amount')
+        payment_method = request.data.get('payment_method')
+        payment_details = request.data.get('payment_details')
+
+        if not all([amount, payment_method, payment_details]):
+            return Response({"error": "All fields are required"}, status=400)
 
         try:
-            amount = float(request.data.get('amount'))
+            amount = Decimal(amount)
         except:
             return Response({"error": "Invalid amount"}, status=400)
 
         settings = SiteSettings.get_settings()
-        min_wd = float(settings.min_withdrawal)
+        if amount < settings.min_withdrawal:
+            return Response({"error": f"Minimum withdrawal is ${settings.min_withdrawal}"}, status=400)
 
-        if amount < min_wd:
-            return Response({"error": f"Minimum withdrawal is ${min_wd}"}, status=400)
-        if amount > request.user.pending_earnings:
+        # Calculate withdrawable balance (use billing summary logic)
+        billing = billing_summary_logic(user)  # आप billing_summary view से logic copy कर सकते हैं
+        if amount > billing['withdrawable_balance']:
             return Response({"error": "Insufficient balance"}, status=400)
 
         Withdrawal.objects.create(
-            user=request.user,
+            user=user,
             amount=amount,
-            payment_details=request.data.get('payment_details', '')
+            payment_method=payment_method,
+            payment_details=payment_details
         )
-        request.user.pending_earnings -= Decimal(str(amount))
-        request.user.save(update_fields=['pending_earnings'])
 
-        return Response({"message": "Withdrawal requested successfully!"}, status=201)
+        return Response({"message": "Withdrawal request created successfully!"}, status=201)
 
 
 class WithdrawalListView(generics.ListAPIView):

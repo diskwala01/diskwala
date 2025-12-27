@@ -79,11 +79,16 @@ class FileSerializer(serializers.ModelSerializer):
         return f"/f/{obj.short_code}/"
 
 
+# core/serializers.py → WithdrawalSerializer update
+
 class WithdrawalSerializer(serializers.ModelSerializer):
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
+    payment_details = serializers.JSONField(required=True)
+
     class Meta:
         model = Withdrawal
         fields = '__all__'
-        read_only_fields = ['user', 'status', 'requested_at', 'processed_at']
+        read_only_fields = ['user', 'status', 'requested_at', 'processed_at', 'payment_method_display']
 
 
 class BotLinkSerializer(serializers.ModelSerializer):
