@@ -426,7 +426,6 @@ class AnalyticsView(APIView):
 
         rate_per_view = float(settings.earning_per_view)
 
-
         # Daily Stats
         today_files_count = user.files.filter(created_at__date=today).count()
         today_views_count = FileView.objects.filter(file__user=user, viewed_at__date=today).count()
@@ -495,7 +494,6 @@ class AnalyticsView(APIView):
 
             "last_30_days": last_30_days
         })
-
 
 # ========================
 # WITHDRAWALS (WITH EMAIL VERIFICATION CHECK)
