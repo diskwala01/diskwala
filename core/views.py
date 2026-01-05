@@ -1067,9 +1067,9 @@ def forgot_password(request):
 
     url = "https://api.brevo.com/v3/smtp/email"
     payload = {
-        "sender": {"name": "DiskWala", "email": "diskwala01@gmail.com"},
+        "sender": {"name": "Royaldisk", "email": "Royaldisk01@gmail.com"},
         "to": [{"email": user.email, "name": user.username}],
-        "subject": "DiskWala - Password Reset OTP",
+        "subject": "Royaldisk - Password Reset OTP",
         "htmlContent": f"""
         <html>
           <body>
@@ -1078,7 +1078,7 @@ def forgot_password(request):
             <p>This OTP is valid for <strong>10 minutes</strong> only.</p>
             <p>If you didn't request this, ignore this email.</p>
             <br>
-            <p>Thanks,<br>DiskWala Team</p>
+            <p>Thanks,<br>Royaldisk Team</p>
           </body>
         </html>
         """
