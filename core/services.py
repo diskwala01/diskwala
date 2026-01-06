@@ -1,23 +1,26 @@
 # core/services.py
-# CLEANED VERSION FOR IMAGEKIT DIRECT UPLOAD (NO SERVER PROCESSING)
 
-# ==============================
-# EARNINGS CALCULATION (ONLY THIS IS USED NOW)
-# ==============================
-def calculate_earnings_per_view(views):
-    """
-    Calculate earnings based on tiered view system (per 1000 views)
-    """
-    if views >= 100000:
-        rate = 0.004
-    elif views >= 50000:
-        rate = 0.0035
-    elif views >= 10000:
-        rate = 0.003
-    else:
-        rate = 0.0025
+from decimal import Decimal
 
-    return round((views / 1000) * rate, 4)
+def calculate_earnings_per_1000_views(views: int, rate_per_1000: Decimal) -> Decimal:
+    """
+    Calculate earnings based on per 1000 views rate
+    Example: 2500 views with $1 per 1000 → $2.5
+    """
+    if views <= 0:
+        return Decimal('0.0000')
+    thousands = Decimal(views) / Decimal('1000')
+    return round(thousands * rate_per_1000, 4)
+
+
+def calculate_earnings_per_1000_downloads(downloads: int, rate_per_1000: Decimal) -> Decimal:
+    """
+    Same logic for downloads
+    """
+    if downloads <= 0:
+        return Decimal('0.0000')
+    thousands = Decimal(downloads) / Decimal('1000')
+    return round(thousands * rate_per_1000, 4)
 
 
 # Optional: File type detection (ab frontend se aata hai, lekin safe rakho)

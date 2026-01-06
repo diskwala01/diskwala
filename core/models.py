@@ -4,6 +4,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 import random
 import string
 
@@ -187,7 +188,14 @@ class SiteSettings(models.Model):
         default="",
         help_text="Google AdSense Client ID (ca-pub-XXXXXXXXXXXXXXXX)"
     )
-
+    earning_per_1000_views = models.DecimalField(
+        max_digits=8, decimal_places=4, default=Decimal('1.0000'),
+        help_text="Earnings in USD per 1000 views (e.g. 1.00 = $1 per 1K views)"
+    )
+    earning_per_1000_downloads = models.DecimalField(
+        max_digits=8, decimal_places=4, default=Decimal('1.0000'),
+        help_text="Earnings in USD per 1000 downloads"
+    )
     meta_banner_placement_id = models.CharField(
         max_length=100,
         blank=True,

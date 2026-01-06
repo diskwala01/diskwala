@@ -42,7 +42,7 @@ from rest_framework.authtoken.models import Token
 
 from .models import UserFile, FileView, Withdrawal, SiteSettings, BotLink, FileDownload, BroadcastNotification
 from .serializers import UserProfileSerializer, FileSerializer, WithdrawalSerializer, BotLinkSerializer, BroadcastNotificationSerializer
-from .services import calculate_earnings_per_view
+from .services import calculate_earnings_per_1000_views, calculate_earnings_per_1000_downloads
 from .utils import get_client_ip, is_unique_view_today
 
 User = get_user_model()
@@ -368,34 +368,44 @@ def user_files_view(request, username):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def increment_view(request, short_code):
-    """
-    Flutter app se call hoga jab video 50% se zyada dekh li jaye
-    POST /api/view/ABC12345/
-    """
     try:
-        file = UserFile.objects.get(short_code=short_code, is_active=True)
-    except UserFile.DoesNotExist:
-        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+        file_obj = get_object_or_404(UserFile, short_code=short_code, is_active=True)
+        ip = get_client_ip(request)
 
-    # Simple view count badhao (har call par +1)
-    file.views += 1
-    file.save(update_fields=['views'])
+        today = timezone.now().date()
+        already_viewed = FileView.objects.filter(
+            file=file_obj, ip_address=ip, viewed_at__date=today
+        ).exists()
 
-    # Optional: Earnings recalculate karo (per view basis pe)
-    from .services import calculate_earnings_per_view
-    new_earnings = calculate_earnings_per_view(file.views)
-    if new_earnings > file.earnings:
-        added = new_earnings - file.earnings
-        file.earnings = new_earnings
-        file.user.pending_earnings += Decimal(str(added))
-        file.user.save(update_fields=['pending_earnings'])
-        file.save(update_fields=['earnings'])
+        if not already_viewed:
+            file_obj.views += 1
+            file_obj.unique_views += 1
 
-    return Response({
-        "message": "View counted",
-        "views": file.views,
-        "earnings": float(file.earnings)
-    })
+            # NEW: Per 1000 views earning
+            settings = SiteSettings.get_settings()
+            rate_per_1000 = settings.earning_per_1000_views or Decimal('1.0000')  # default $1 per 1K
+            earning = calculate_earnings_per_1000_views(file_obj.views, rate_per_1000)
+
+            # Update file earnings (only view earnings)
+            file_obj.earnings = earning  # total view earnings
+            file_obj.save(update_fields=['views', 'unique_views', 'earnings'])
+
+            # Update user earnings
+            user = file_obj.user
+            user.pending_earnings += (earning - (file_obj.earnings - (earning - file_obj.earnings)))  # better to recalculate
+            # Simpler: recalculate total view earnings
+            total_view_earning = calculate_earnings_per_1000_views(file_obj.views, rate_per_1000)
+            # But to avoid complexity, just add incremental
+            incremental = calculate_earnings_per_1000_views(1, rate_per_1000)  # earning for this 1 view
+            user.pending_earnings += incremental
+            user.total_earnings += incremental
+            user.save(update_fields=['pending_earnings', 'total_earnings'])
+
+            FileView.objects.create(file=file_obj, ip_address=ip)
+
+        return Response({"message": "View counted"}, status=200)
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
 
 # ========================
 # USER DASHBOARD VIEWS
@@ -1186,44 +1196,33 @@ def admin_notification_detail(request, pk):
 def increment_download(request, short_code):
     try:
         file_obj = get_object_or_404(UserFile, short_code=short_code, is_active=True)
-        
         ip = get_client_ip(request)
-        
-        # Unique download check (today ke basis par)
+
         today = timezone.now().date()
         already_downloaded = FileDownload.objects.filter(
-            file=file_obj,
-            ip_address=ip,
-            downloaded_at__date=today
+            file=file_obj, ip_address=ip, downloaded_at__date=today
         ).exists()
 
         if not already_downloaded:
-            # Increment counts
             file_obj.downloads += 1
             file_obj.unique_downloads += 1
 
-            # Calculate earning
             settings = SiteSettings.get_settings()
-            earning_rate = settings.earning_per_download or Decimal('0.001000')
-            earning = Decimal('1') * earning_rate  # 1 unique download
+            rate_per_1000_dl = settings.earning_per_1000_downloads or Decimal('1.0000')
+            earning = calculate_earnings_per_1000_downloads(file_obj.downloads, rate_per_1000_dl)
 
-            file_obj.download_earnings += earning
-            file_obj.earnings += earning  # total earnings mein bhi add
+            file_obj.download_earnings = earning
+            file_obj.save(update_fields=['downloads', 'unique_downloads', 'download_earnings'])
 
-            # User ke earnings update
+            incremental = calculate_earnings_per_1000_downloads(1, rate_per_1000_dl)
             user = file_obj.user
-            user.pending_earnings += earning
-            user.total_earnings += earning
-
-            # Save all
-            file_obj.save(update_fields=['downloads', 'unique_downloads', 'download_earnings', 'earnings'])
+            user.pending_earnings += incremental
+            user.total_earnings += incremental
             user.save(update_fields=['pending_earnings', 'total_earnings'])
 
-            # Log download
             FileDownload.objects.create(file=file_obj, ip_address=ip)
 
         return Response({"message": "Download counted"}, status=200)
-
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
