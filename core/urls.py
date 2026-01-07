@@ -36,6 +36,7 @@ from .views import (
     get_active_notification,
     increment_download,
     billing_summary,
+    public_site_settings,
 
     # ========================
     # ADMIN AUTH & PANEL
