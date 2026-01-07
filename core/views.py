@@ -721,57 +721,116 @@ def admin_logs(request):
 @api_view(['GET', 'PATCH'])
 @permission_classes([IsSuperuser])
 def admin_settings(request):
-    settings_obj = SiteSettings.get_settings()
+    """
+    Admin-only endpoint to GET and PATCH global SiteSettings.
+    Used by admin settings page to load and save all site-wide configurations.
+    """
+    settings_obj = SiteSettings.get_settings()  # Singleton instance
 
     if request.method == 'GET':
+        # Return all current settings as JSON
         return Response({
-            "earning_per_view": float(settings_obj.earning_per_view),
-            "min_withdrawal": float(settings_obj.min_withdrawal),
-            "site_name": settings_obj.site_name,
+            # Earnings
+            "earning_per_view": float(settings_obj.earning_per_view or 0),
+            "earning_per_download": float(settings_obj.earning_per_download or 0),
+            "earning_per_1000_views": float(settings_obj.earning_per_1000_views or 0),
+            "earning_per_1000_downloads": float(settings_obj.earning_per_1000_downloads or 0),
+
+            # Withdrawal
+            "min_withdrawal": float(settings_obj.min_withdrawal or 10.00),
+
+            # General
+            "site_name": settings_obj.site_name or "Royaldisk",
+
+            # AdMob
             "admob_banner_id": settings_obj.admob_banner_id or "",
             "admob_interstitial_id": settings_obj.admob_interstitial_id or "",
+
+            # Meta Audience Network
             "meta_banner_placement_id": settings_obj.meta_banner_placement_id or "",
             "meta_interstitial_placement_id": settings_obj.meta_interstitial_placement_id or "",
+
+            # Google AdSense
             "adsense_client_id": settings_obj.adsense_client_id or "",
-            # NAYE SOCIAL LINKS ADD KIYE
+
+            # App Social Links
             "instagram_link": settings_obj.instagram_link or "",
             "telegram_link": settings_obj.telegram_link or "",
             "youtube_link": settings_obj.youtube_link or "",
+
+            # SEO & Social Sharing Settings (NEW & FULLY SUPPORTED)
+            "seo_title": settings_obj.seo_title or "Royaldisk - Earn Money by Sharing Files",
+            "seo_description": settings_obj.seo_description or "Upload files, share links, and earn real money from views and downloads. Fast, secure, and reliable file hosting.",
+            "seo_keywords": settings_obj.seo_keywords or "file sharing, earn money online, cloud storage, upload files, Royaldisk",
+            "seo_og_image": settings_obj.seo_og_image or "",
+            "favicon_url": settings_obj.favicon_url or "",
         })
 
     elif request.method == 'PATCH':
-        # Existing fields
+        # Update only the fields that are sent in the request
+
+        # Earnings
         if 'earning_per_view' in request.data:
             settings_obj.earning_per_view = Decimal(str(request.data['earning_per_view']))
+        if 'earning_per_download' in request.data:
+            settings_obj.earning_per_download = Decimal(str(request.data['earning_per_download']))
+        if 'earning_per_1000_views' in request.data:
+            settings_obj.earning_per_1000_views = Decimal(str(request.data['earning_per_1000_views']))
+        if 'earning_per_1000_downloads' in request.data:
+            settings_obj.earning_per_1000_downloads = Decimal(str(request.data['earning_per_1000_downloads']))
+
+        # Withdrawal
         if 'min_withdrawal' in request.data:
             settings_obj.min_withdrawal = Decimal(str(request.data['min_withdrawal']))
+
+        # General
         if 'site_name' in request.data:
-            settings_obj.site_name = request.data['site_name'].strip()
+            settings_obj.site_name = request.data['site_name'][:100].strip() if request.data['site_name'] else "Royaldisk"
+
+        # AdMob
         if 'admob_banner_id' in request.data:
-            settings_obj.admob_banner_id = request.data['admob_banner_id'].strip()
+            settings_obj.admob_banner_id = request.data['admob_banner_id'][:100].strip()
         if 'admob_interstitial_id' in request.data:
-            settings_obj.admob_interstitial_id = request.data['admob_interstitial_id'].strip()
+            settings_obj.admob_interstitial_id = request.data['admob_interstitial_id'][:100].strip()
+
+        # Meta
         if 'meta_banner_placement_id' in request.data:
-            settings_obj.meta_banner_placement_id = request.data['meta_banner_placement_id'].strip()
+            settings_obj.meta_banner_placement_id = request.data['meta_banner_placement_id'][:100].strip()
         if 'meta_interstitial_placement_id' in request.data:
-            settings_obj.meta_interstitial_placement_id = request.data['meta_interstitial_placement_id'].strip()
+            settings_obj.meta_interstitial_placement_id = request.data['meta_interstitial_placement_id'][:100].strip()
+
+        # AdSense
         if 'adsense_client_id' in request.data:
-            settings_obj.adsense_client_id = request.data['adsense_client_id'].strip()
+            settings_obj.adsense_client_id = request.data['adsense_client_id'][:100].strip()
 
-        # NAYE SOCIAL LINKS HANDLE KIYE
+        # Social Links
         if 'instagram_link' in request.data:
-            settings_obj.instagram_link = request.data['instagram_link'].strip()
+            settings_obj.instagram_link = request.data['instagram_link'][:500].strip()
         if 'telegram_link' in request.data:
-            settings_obj.telegram_link = request.data['telegram_link'].strip()
+            settings_obj.telegram_link = request.data['telegram_link'][:500].strip()
         if 'youtube_link' in request.data:
-            settings_obj.youtube_link = request.data['youtube_link'].strip()
+            settings_obj.youtube_link = request.data['youtube_link'][:500].strip()
 
+        # SEO Fields (NEW - AB YE BHI SAVE HONGE)
+        if 'seo_title' in request.data:
+            settings_obj.seo_title = request.data['seo_title'][:200].strip()
+        if 'seo_description' in request.data:
+            settings_obj.seo_description = request.data['seo_description'][:300].strip()
+        if 'seo_keywords' in request.data:
+            settings_obj.seo_keywords = request.data['seo_keywords'][:500].strip()
+        if 'seo_og_image' in request.data:
+            settings_obj.seo_og_image = request.data['seo_og_image'][:500].strip()
+        if 'favicon_url' in request.data:
+            settings_obj.favicon_url = request.data['favicon_url'][:500].strip()
+
+        # Save to database
         settings_obj.save()
 
+        # Return success response with updated data
         return Response({
-            "message": "All settings saved successfully!"
+            "message": "All settings saved successfully!",
+            "success": True
         }, status=status.HTTP_200_OK)
-
 
 @api_view(['GET'])
 @permission_classes([IsSuperuser])
