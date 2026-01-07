@@ -41,7 +41,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.authtoken.models import Token
 
 from .models import UserFile, FileView, Withdrawal, SiteSettings, BotLink, FileDownload, BroadcastNotification
-from .serializers import UserProfileSerializer, FileSerializer, WithdrawalSerializer, BotLinkSerializer, BroadcastNotificationSerializer
+from .serializers import UserProfileSerializer, FileSerializer, WithdrawalSerializer, BotLinkSerializer, BroadcastNotificationSerializer, SiteSettingsSerializer
 from .services import calculate_earnings_per_1000_views, calculate_earnings_per_1000_downloads
 from .utils import get_client_ip, is_unique_view_today
 
@@ -250,12 +250,23 @@ def update_file(request, pk):
     file_obj.save()
     return Response(FileSerializer(file_obj, context={'request': request}).data)
 
+# ==================== NEW: PUBLIC SITE SETTINGS (SEO + Global) ====================
 @api_view(['GET'])
-@permission_classes([AllowAny])  # कोई login की जरूरत नहीं (public)
+@permission_classes([AllowAny])
 def public_site_settings(request):
-    settings = SiteSettings.get_settings()  # singleton
-    serializer = SiteSettingsSerializer(settings)
-    return Response(serializer.data)
+    """
+    Public endpoint to get site-wide settings (SEO, site name, etc.)
+    Used by user dashboard, public file pages, etc. for dynamic SEO tags.
+    """
+    try:
+        settings = SiteSettings.get_settings()  # Singleton instance
+        serializer = SiteSettingsSerializer(settings)  # ← यहाँ import चाहिए था!
+        return Response(serializer.data)
+    except Exception as e:
+        return Response(
+            {"error": "Failed to load site settings"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 # ========================
