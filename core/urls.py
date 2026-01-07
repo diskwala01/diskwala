@@ -84,6 +84,7 @@ urlpatterns = [
     path("withdraw/", CreateWithdrawalView.as_view(), name="withdraw"),
     path("withdrawals/", WithdrawalListView.as_view(), name="withdrawals"),
     path("admob-ids/", get_admob_ids, name="admob_ids"),
+    path('site-settings/', public_site_settings, name='public_site_settings'),
 
     # File update (title / thumbnail etc.)
     path("files/<int:pk>/update/", update_file, name="update_file"),

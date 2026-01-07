@@ -250,6 +250,13 @@ def update_file(request, pk):
     file_obj.save()
     return Response(FileSerializer(file_obj, context={'request': request}).data)
 
+@api_view(['GET'])
+@permission_classes([AllowAny])  # कोई login की जरूरत नहीं (public)
+def public_site_settings(request):
+    settings = SiteSettings.get_settings()  # singleton
+    serializer = SiteSettingsSerializer(settings)
+    return Response(serializer.data)
+
 
 # ========================
 # PUBLIC FILE VIEW (View & Download Tracking + SEO Ready)
