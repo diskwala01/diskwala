@@ -252,7 +252,7 @@ def update_file(request, pk):
 
 
 # ========================
-# PUBLIC FILE VIEW (View & Download Tracking)
+# PUBLIC FILE VIEW (View & Download Tracking + SEO Ready)
 # ========================
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -263,20 +263,21 @@ def public_file_view(request, short_code):
             is_active=True
         )
     except UserFile.DoesNotExist:
-        return Response({"error": "File not found or inactive"}, status=404)
+        return Response({"error": "File not found or inactive"}, status=status.HTTP_404_NOT_FOUND)
 
     ip = get_client_ip(request)
     settings = SiteSettings.get_settings()
-    earning_rate = settings.earning_per_view
 
-    # Check if this is a download request (?download=true)
+    # Query param se check karo ki download request hai ya nahi
     download_requested = request.query_params.get('download', 'false').lower() == 'true'
     is_download_action = (file_obj.file_type != 'video') or download_requested
 
     view_incremented = False
     download_incremented = False
 
-    # === VIEW COUNT & EARNINGS FOR VIDEO ===
+    # ====================
+    # VIEW COUNT (Video Only)
+    # ====================
     if file_obj.file_type == 'video':
         file_obj.views += 1
         if is_unique_view_today(file_obj, ip):
@@ -284,63 +285,106 @@ def public_file_view(request, short_code):
             FileView.objects.create(
                 file=file_obj,
                 ip_address=ip,
-                user_agent=request.META.get('HTTP_USER_AGENT', '')
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
             )
         view_incremented = True
 
-    # === DOWNLOAD COUNT & EARNINGS FOR NON-VIDEO OR ?download=true ===
+    # ====================
+    # DOWNLOAD COUNT (Non-video ya video with ?download=true)
+    # ====================
     if is_download_action:
         file_obj.downloads += 1
-        if not FileDownload.objects.filter(
+        today = timezone.now().date()
+        already_downloaded_today = FileDownload.objects.filter(
             file=file_obj,
             ip_address=ip,
-            downloaded_at__date=timezone.now().date()
-        ).exists():
+            downloaded_at__date=today
+        ).exists()
+
+        if not already_downloaded_today:
             file_obj.unique_downloads += 1
             FileDownload.objects.create(
                 file=file_obj,
                 ip_address=ip,
-                user_agent=request.META.get('HTTP_USER_AGENT', '')
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
             )
-        download_incremented = True
+            download_incremented = True
 
-    # === EARNINGS CALCULATION ===
-    earning = Decimal('0.0')
+    # ====================
+    # EARNINGS CALCULATION
+    # ====================
+    total_earning = Decimal('0.0000')
+
     if view_incremented:
-        earning += earning_rate  # View earning
+        total_earning += settings.earning_per_view
+
     if download_incremented:
-        earning += earning_rate * Decimal('1.5')  # Download earning (1.5x)
+        # Download earning = 1.5x view rate (aap change kar sakte ho)
+        download_earning = settings.earning_per_view * Decimal('1.5')
+        total_earning += download_earning
 
-    if earning > 0:
-        file_obj.earnings += earning
-        file_obj.download_earnings += (earning_rate * Decimal('1.5') if download_incremented else Decimal('0.0'))
-        file_obj.user.pending_earnings += earning
-        file_obj.user.total_earnings += earning
-        file_obj.user.save()
+    if total_earning > 0:
+        file_obj.earnings += total_earning
+        file_obj.download_earnings += (settings.earning_per_view * Decimal('1.5') if download_incremented else Decimal('0.0000'))
+        file_obj.save(update_fields=['views', 'unique_views', 'downloads', 'unique_downloads', 'earnings', 'download_earnings'])
 
-    file_obj.save()
+        # User earnings update
+        user = file_obj.user
+        user.pending_earnings += total_earning
+        user.total_earnings += total_earning
+        user.save(update_fields=['pending_earnings', 'total_earnings'])
 
-    # === SERIALIZER WITH BRANDING & CREATOR INFO ===
+    # ====================
+    # SERIALIZED RESPONSE
+    # ====================
     serializer = FileSerializer(file_obj, context={'request': request})
     data = serializer.data
 
-    # Add extra fields required by Flutter app
+    # Extra data for Flutter/Android App
     data.update({
         'should_download': file_obj.user.allow_download and is_download_action,
         'uploaded_by': file_obj.user.username,
         'brand_name': file_obj.user.brand_name or file_obj.user.username,
 
-        # Social / Branding Links
-        'whatsapp': file_obj.user.whatsapp,
-        'facebook': file_obj.user.facebook,
-        'instagram': file_obj.user.instagram,
-        'twitter': file_obj.user.twitter,
-        'youtube': file_obj.user.youtube,
-        'website': file_obj.user.website,
-        'telegram_channel': file_obj.user.telegram_channel,
+        # Creator Social & Support Links
+        'whatsapp': file_obj.user.whatsapp or None,
+        'facebook': file_obj.user.facebook or None,
+        'instagram': file_obj.user.instagram or None,
+        'twitter': file_obj.user.twitter or None,
+        'youtube': file_obj.user.youtube or None,
+        'website': file_obj.user.website or None,
+        'telegram_channel': file_obj.user.telegram_channel or None,
+        'support_link': file_obj.user.support_link or None,
     })
 
-    return Response(data)
+    # ====================
+    # SEO DATA (Future Template Use Ke Liye)
+    # ====================
+    seo_title = f"{file_obj.title} - {file_obj.user.brand_name or file_obj.user.username} on Royaldisk"
+    seo_description = (
+        file_obj.description[:297] + "..." 
+        if file_obj.description and len(file_obj.description) > 300 
+        else file_obj.description or f"Download or view {file_obj.title} securely shared on Royaldisk."
+    )
+    seo_og_image = (
+        file_obj.external_thumbnail_url or 
+        file_obj.external_file_url or 
+        settings.seo_og_image or 
+        f"{request.scheme}://{request.get_host()}/static/default-og.jpg"
+    )
+
+    data.update({
+        'seo': {
+            'title': seo_title,
+            'description': seo_description,
+            'keywords': settings.seo_keywords or "file sharing, download, secure upload, earn online",
+            'og_image': seo_og_image,
+            'og_url': request.build_absolute_uri(),
+            'site_name': settings.site_name,
+        }
+    })
+
+    return Response(data, status=status.HTTP_200_OK)
 
 # 🚀 YE NAYA VIEW public_file_view के BAAD add karo (line 350-370 के around)
 @api_view(['GET'])

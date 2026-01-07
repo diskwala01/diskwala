@@ -176,6 +176,11 @@ class SiteSettings(models.Model):
     earning_per_view = models.DecimalField(max_digits=8, decimal_places=6, default=0.002500)
     min_withdrawal = models.DecimalField(max_digits=10, decimal_places=2, default=10.00)
     site_name = models.CharField(max_length=100, default="dSkWala")
+    seo_title = models.CharField(max_length=200, blank=True, default="Royaldisk - Fast & Secure File Sharing")
+    seo_description = models.CharField(max_length=300, blank=True, default="Upload and share files securely. Earn money from views and downloads on Royaldisk.")
+    seo_keywords = models.CharField(max_length=500, blank=True, default="file sharing, upload files, earn money online, secure cloud storage")
+    seo_og_image = models.URLField(blank=True, null=True, help_text="Default OG image URL for social sharing (e.g. logo or banner)")
+    favicon_url = models.URLField(blank=True, null=True)
     earning_per_download = models.DecimalField(          # ← YE NAYA FIELD
         max_digits=8, 
         decimal_places=6, 

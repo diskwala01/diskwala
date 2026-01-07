@@ -110,6 +110,7 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'meta_banner_placement_id',
             'meta_interstitial_placement_id',
             'admob_banner_id',
+            'seo_title', 'seo_description', 'seo_keywords', 'seo_og_image', 'favicon_url',
             'admob_interstitial_id',
             'instagram_link',      # ← YE TEEN NAYE
             'telegram_link',
