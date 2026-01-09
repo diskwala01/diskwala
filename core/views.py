@@ -669,6 +669,8 @@ def admin_all_files(request):
                 or (f.external_file_url if f.file_type == "image" else
                     "https://via.placeholder.com/80x80/333/fff?text=No+Image")
             ),
+            # Ye line add kar do ↓↓↓
+            "short_code": f.short_code,
         })
 
     return Response(data)
