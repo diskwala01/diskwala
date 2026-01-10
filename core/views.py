@@ -735,18 +735,17 @@ def admin_logs(request):
         })
     return Response(data)
 
-
 @api_view(['GET', 'PATCH'])
-@permission_classes([IsSuperuser])
+@permission_classes([IsSuperuser])  # या [IsAuthenticated] अगर सिर्फ लॉगिन काफी है
 def admin_settings(request):
     """
     Admin-only endpoint to GET and PATCH global SiteSettings.
-    Used by admin settings page to load and save all site-wide configurations.
+    Supports all current fields + custom ad script for third-party networks.
     """
     settings_obj = SiteSettings.get_settings()  # Singleton instance
 
     if request.method == 'GET':
-        # Return all current settings as JSON
+        # Return all current settings as JSON (frontend admin page के लिए)
         return Response({
             # Earnings
             "earning_per_view": float(settings_obj.earning_per_view or 0),
@@ -760,32 +759,32 @@ def admin_settings(request):
             # General
             "site_name": settings_obj.site_name or "Royaldisk",
 
-            # AdMob
+            # Legacy Ads (AdMob / Meta / AdSense) - optional, रख सकते हो
             "admob_banner_id": settings_obj.admob_banner_id or "",
             "admob_interstitial_id": settings_obj.admob_interstitial_id or "",
-
-            # Meta Audience Network
             "meta_banner_placement_id": settings_obj.meta_banner_placement_id or "",
             "meta_interstitial_placement_id": settings_obj.meta_interstitial_placement_id or "",
-
-            # Google AdSense
             "adsense_client_id": settings_obj.adsense_client_id or "",
 
-            # App Social Links
+            # Social Links
             "instagram_link": settings_obj.instagram_link or "",
             "telegram_link": settings_obj.telegram_link or "",
             "youtube_link": settings_obj.youtube_link or "",
 
-            # SEO & Social Sharing Settings (NEW & FULLY SUPPORTED)
+            # SEO & Sharing
             "seo_title": settings_obj.seo_title or "Royaldisk - Earn Money by Sharing Files",
-            "seo_description": settings_obj.seo_description or "Upload files, share links, and earn real money from views and downloads. Fast, secure, and reliable file hosting.",
+            "seo_description": settings_obj.seo_description or "Upload files, share links, and earn real money from views and downloads.",
             "seo_keywords": settings_obj.seo_keywords or "file sharing, earn money online, cloud storage, upload files, Royaldisk",
             "seo_og_image": settings_obj.seo_og_image or "",
             "favicon_url": settings_obj.favicon_url or "",
+
+            # ★★★ Custom Third-Party Ad Script (नया फीचर) ★★★
+            "custom_ad_script": settings_obj.custom_ad_script or "",
+            "custom_ad_script_enabled": settings_obj.custom_ad_script_enabled,
         })
 
     elif request.method == 'PATCH':
-        # Update only the fields that are sent in the request
+        # Update only the fields that are sent in the request (partial update)
 
         # Earnings
         if 'earning_per_view' in request.data:
@@ -803,52 +802,59 @@ def admin_settings(request):
 
         # General
         if 'site_name' in request.data:
-            settings_obj.site_name = request.data['site_name'][:100].strip() if request.data['site_name'] else "Royaldisk"
+            settings_obj.site_name = str(request.data['site_name'])[:100].strip() or "Royaldisk"
 
-        # AdMob
+        # Legacy Ads
         if 'admob_banner_id' in request.data:
-            settings_obj.admob_banner_id = request.data['admob_banner_id'][:100].strip()
+            settings_obj.admob_banner_id = str(request.data['admob_banner_id'])[:100].strip()
         if 'admob_interstitial_id' in request.data:
-            settings_obj.admob_interstitial_id = request.data['admob_interstitial_id'][:100].strip()
-
-        # Meta
+            settings_obj.admob_interstitial_id = str(request.data['admob_interstitial_id'])[:100].strip()
         if 'meta_banner_placement_id' in request.data:
-            settings_obj.meta_banner_placement_id = request.data['meta_banner_placement_id'][:100].strip()
+            settings_obj.meta_banner_placement_id = str(request.data['meta_banner_placement_id'])[:100].strip()
         if 'meta_interstitial_placement_id' in request.data:
-            settings_obj.meta_interstitial_placement_id = request.data['meta_interstitial_placement_id'][:100].strip()
-
-        # AdSense
+            settings_obj.meta_interstitial_placement_id = str(request.data['meta_interstitial_placement_id'])[:100].strip()
         if 'adsense_client_id' in request.data:
-            settings_obj.adsense_client_id = request.data['adsense_client_id'][:100].strip()
+            settings_obj.adsense_client_id = str(request.data['adsense_client_id'])[:100].strip()
 
         # Social Links
         if 'instagram_link' in request.data:
-            settings_obj.instagram_link = request.data['instagram_link'][:500].strip()
+            settings_obj.instagram_link = str(request.data['instagram_link'])[:500].strip()
         if 'telegram_link' in request.data:
-            settings_obj.telegram_link = request.data['telegram_link'][:500].strip()
+            settings_obj.telegram_link = str(request.data['telegram_link'])[:500].strip()
         if 'youtube_link' in request.data:
-            settings_obj.youtube_link = request.data['youtube_link'][:500].strip()
+            settings_obj.youtube_link = str(request.data['youtube_link'])[:500].strip()
 
-        # SEO Fields (NEW - AB YE BHI SAVE HONGE)
+        # SEO Fields
         if 'seo_title' in request.data:
-            settings_obj.seo_title = request.data['seo_title'][:200].strip()
+            settings_obj.seo_title = str(request.data['seo_title'])[:200].strip()
         if 'seo_description' in request.data:
-            settings_obj.seo_description = request.data['seo_description'][:300].strip()
+            settings_obj.seo_description = str(request.data['seo_description'])[:300].strip()
         if 'seo_keywords' in request.data:
-            settings_obj.seo_keywords = request.data['seo_keywords'][:500].strip()
+            settings_obj.seo_keywords = str(request.data['seo_keywords'])[:500].strip()
         if 'seo_og_image' in request.data:
-            settings_obj.seo_og_image = request.data['seo_og_image'][:500].strip()
+            settings_obj.seo_og_image = str(request.data['seo_og_image'])[:500].strip()
         if 'favicon_url' in request.data:
-            settings_obj.favicon_url = request.data['favicon_url'][:500].strip()
+            settings_obj.favicon_url = str(request.data['favicon_url'])[:500].strip()
+
+        # ★★★ Custom Ad Script Fields (मुख्य बदलाव यहीं) ★★★
+        if 'custom_ad_script' in request.data:
+            settings_obj.custom_ad_script = str(request.data['custom_ad_script']).strip()  # कोई लंबाई लिमिट नहीं, TextField है
+        if 'custom_ad_script_enabled' in request.data:
+            settings_obj.custom_ad_script_enabled = bool(request.data['custom_ad_script_enabled'])
 
         # Save to database
         settings_obj.save()
 
-        # Return success response with updated data
+        # Success response (frontend को बताने के लिए)
         return Response({
-            "message": "All settings saved successfully!",
-            "success": True
+            "message": "Settings updated successfully!",
+            "success": True,
+            # Optional: updated custom fields भी वापस भेज सकते हो
+            "custom_ad_script": settings_obj.custom_ad_script,
+            "custom_ad_script_enabled": settings_obj.custom_ad_script_enabled,
         }, status=status.HTTP_200_OK)
+
+    return Response({"error": "Method not allowed"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 @api_view(['GET'])
 @permission_classes([IsSuperuser])
