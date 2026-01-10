@@ -115,6 +115,9 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'instagram_link',      # ← YE TEEN NAYE
             'telegram_link',
             'youtube_link',
+            # नए फील्ड्स (third-party ads के लिए)
+            'custom_ad_script',
+            'custom_ad_script_enabled',
         ]
 
 # core/serializers.py → end mein add

@@ -181,6 +181,15 @@ class SiteSettings(models.Model):
     seo_keywords = models.CharField(max_length=500, blank=True, default="file sharing, upload files, earn money online, secure cloud storage")
     seo_og_image = models.URLField(blank=True, null=True, help_text="Default OG image URL for social sharing (e.g. logo or banner)")
     favicon_url = models.URLField(blank=True, null=True)
+    custom_ad_script = models.TextField(
+        blank=True,
+        default="",
+        help_text="Yahan third-party ad network ka pura <script>...</script> tag paste karo. Multiple scripts ke liye ek ke neeche ek likh sakte ho."
+    )
+    custom_ad_script_enabled = models.BooleanField(
+        default=False,
+        help_text="Is checkbox ko tick karne par hi custom script load hoga"
+    )
     earning_per_download = models.DecimalField(          # ← YE NAYA FIELD
         max_digits=8, 
         decimal_places=6, 

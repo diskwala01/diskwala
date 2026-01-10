@@ -255,19 +255,35 @@ def update_file(request, pk):
 @permission_classes([AllowAny])
 def public_site_settings(request):
     """
-    Public endpoint to get site-wide settings (SEO, site name, etc.)
-    Used by user dashboard, public file pages, etc. for dynamic SEO tags.
+    Public endpoint to get site-wide settings
+    Used by:
+    - Frontend for dynamic SEO tags
+    - Loading AdSense / third-party ad scripts
+    - App settings (earning rates, social links, etc.)
     """
     try:
-        settings = SiteSettings.get_settings()  # Singleton instance
-        serializer = SiteSettingsSerializer(settings)  # ← यहाँ import चाहिए था!
-        return Response(serializer.data)
+        # Singleton pattern - हमेशा पहला (या एकमात्र) रिकॉर्ड लौटाता है
+        settings = SiteSettings.get_settings()
+        
+        # Serializer से सारे जरूरी फील्ड्स serialize हो जाएंगे
+        serializer = SiteSettingsSerializer(settings)
+        
+        # अगर आपको कुछ एक्स्ट्रा/कस्टम फील्ड्स जोड़ने हों तो यहाँ कर सकते हैं
+        data = serializer.data
+        
+        # (Optional) कुछ अतिरिक्त calculated या safe फील्ड्स अगर जरूरत हो
+        # data['current_year'] = timezone.now().year
+        
+        return Response(data)
+        
     except Exception as e:
+        # प्रोडक्शन में इसे logger में डालना बेहतर होता है
+        print(f"Error loading site settings: {str(e)}")  # ← debug के लिए
+        
         return Response(
-            {"error": "Failed to load site settings"},
+            {"error": "Failed to load site settings. Please try again later."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 # ========================
 # PUBLIC FILE VIEW (View & Download Tracking + SEO Ready)
