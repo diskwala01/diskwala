@@ -641,24 +641,37 @@ class WithdrawalListView(generics.ListAPIView):
 # ========================
 # ADMIN PANEL — ONLY SUPERUSER
 # ========================
+
 @api_view(['GET'])
 @permission_classes([IsSuperuser])
 def admin_users(request):
     users = User.objects.all().annotate(
-        file_count=Count('files')
+        file_count=Count('files'),
+        view_earnings=Sum('files__earnings'),
+        download_earnings=Sum('files__download_earnings')
     )
 
-    data = list(users.values(
-        'id',
-        'username',
-        'email',
-        'total_earnings',
-        'pending_earnings',
-        'paid_earnings',
-        'is_active',
-        'created_at',
-        'file_count'
-    ))
+    data = []
+
+    for u in users:
+        total = (u.view_earnings or 0) + (u.download_earnings or 0)
+
+        data.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+
+            # REAL CALCULATED EARNINGS
+            "total_earnings": float(total),
+
+            # Existing fields
+            "pending_earnings": float(u.pending_earnings or 0),
+            "paid_earnings": float(u.paid_earnings or 0),
+
+            "file_count": u.file_count,
+            "is_active": u.is_active,
+            "created_at": u.created_at
+        })
 
     return Response(data)
 
