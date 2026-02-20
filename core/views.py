@@ -456,44 +456,72 @@ def user_files_view(request, username):
 @permission_classes([AllowAny])
 def increment_view(request, short_code):
     try:
-        file_obj = get_object_or_404(UserFile, short_code=short_code, is_active=True)
+        # File fetch
+        file_obj = get_object_or_404(
+            UserFile,
+            short_code=short_code,
+            is_active=True
+        )
+
         ip = get_client_ip(request)
 
-        today = timezone.now().date()
-        already_viewed = FileView.objects.filter(
-            file=file_obj, ip_address=ip, viewed_at__date=today
-        ).exists()
+        # =========================
+        # ALWAYS COUNT VIEW
+        # =========================
+        file_obj.views += 1
+        file_obj.unique_views += 1   # optional but useful for stats
 
-        incremental_earning = Decimal('0.0000')
+        # =========================
+        # EARNINGS CALCULATION
+        # =========================
+        settings = SiteSettings.get_settings()
+        rate_per_1000 = settings.earning_per_1000_views or Decimal('1.0000')
 
-        if not already_viewed:
-            file_obj.views += 1
-            file_obj.unique_views += 1
+        incremental_earning = calculate_earnings_per_1000_views(
+            1,
+            rate_per_1000
+        )
 
-            settings = SiteSettings.get_settings()
-            rate_per_1000 = settings.earning_per_1000_views or Decimal('1.0000')
-            incremental = calculate_earnings_per_1000_views(1, rate_per_1000)
-            incremental_earning = incremental
+        file_obj.earnings += incremental_earning
 
-            file_obj.earnings += incremental
-            file_obj.save(update_fields=['views', 'unique_views', 'earnings'])
+        # Save file stats
+        file_obj.save(update_fields=[
+            'views',
+            'unique_views',
+            'earnings'
+        ])
 
-            user = file_obj.user
-            user.pending_earnings += incremental
-            user.total_earnings += incremental
-            user.save(update_fields=['pending_earnings', 'total_earnings'])
+        # =========================
+        # USER EARNINGS UPDATE
+        # =========================
+        user = file_obj.user
+        user.pending_earnings += incremental_earning
+        user.total_earnings += incremental_earning
 
-            FileView.objects.create(
-                file=file_obj,
-                ip_address=ip,
-                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
-            )
+        user.save(update_fields=[
+            'pending_earnings',
+            'total_earnings'
+        ])
 
-        # 🔥 सबसे महत्वपूर्ण: save के बाद fresh data लाओ
+        # =========================
+        # STORE VIEW LOG (OPTIONAL ANALYTICS)
+        # =========================
+        FileView.objects.create(
+            file=file_obj,
+            ip_address=ip,
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+        )
+
+        # =========================
+        # RETURN UPDATED DATA
+        # =========================
         file_obj.refresh_from_db()
 
-        # latest data serialize करके return करो
-        serializer = FileSerializer(file_obj, context={'request': request})
+        serializer = FileSerializer(
+            file_obj,
+            context={'request': request}
+        )
+
         return Response(serializer.data, status=200)
 
     except Exception as e:
