@@ -310,9 +310,13 @@ def public_file_view(request, short_code):
     download_incremented = False
 
     # ====================
-    # VIEW COUNT (Video Only)
+    # VIEW COUNT — अब VIDEO के लिए बिल्कुल नहीं बढ़ेगा
     # ====================
     if file_obj.file_type == 'video':
+        # Video के लिए views और unique_views पर कोई बदलाव नहीं
+        pass
+    else:
+        # Non-video files के लिए views बढ़ाना (जैसा पहले था)
         file_obj.views += 1
         if is_unique_view_today(file_obj, ip):
             file_obj.unique_views += 1
@@ -324,7 +328,7 @@ def public_file_view(request, short_code):
         view_incremented = True
 
     # ====================
-    # DOWNLOAD COUNT (Non-video ya video with ?download=true)
+    # DOWNLOAD COUNT (Non-video या video with ?download=true)
     # ====================
     if is_download_action:
         file_obj.downloads += 1
@@ -342,10 +346,10 @@ def public_file_view(request, short_code):
                 ip_address=ip,
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
             )
-            download_incremented = True
+        download_incremented = True
 
     # ====================
-    # EARNINGS CALCULATION
+    # EARNINGS CALCULATION — video के लिए views से earning नहीं आएगी
     # ====================
     total_earning = Decimal('0.0000')
 
@@ -359,8 +363,13 @@ def public_file_view(request, short_code):
 
     if total_earning > 0:
         file_obj.earnings += total_earning
-        file_obj.download_earnings += (settings.earning_per_view * Decimal('1.5') if download_incremented else Decimal('0.0000'))
-        file_obj.save(update_fields=['views', 'unique_views', 'downloads', 'unique_downloads', 'earnings', 'download_earnings'])
+        file_obj.download_earnings += (
+            settings.earning_per_view * Decimal('1.5') if download_incremented else Decimal('0.0000')
+        )
+        file_obj.save(update_fields=[
+            'views', 'unique_views', 'downloads', 'unique_downloads',
+            'earnings', 'download_earnings'
+        ])
 
         # User earnings update
         user = file_obj.user
@@ -392,7 +401,7 @@ def public_file_view(request, short_code):
     })
 
     # ====================
-    # SEO DATA (Future Template Use Ke Liye)
+    # SEO DATA
     # ====================
     seo_title = f"{file_obj.title} - {file_obj.user.brand_name or file_obj.user.username} on Royaldisk"
     seo_description = (
