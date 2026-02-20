@@ -464,33 +464,38 @@ def increment_view(request, short_code):
             file=file_obj, ip_address=ip, viewed_at__date=today
         ).exists()
 
+        incremental_earning = Decimal('0.0000')
+
         if not already_viewed:
             file_obj.views += 1
             file_obj.unique_views += 1
 
-            # NEW: Per 1000 views earning
             settings = SiteSettings.get_settings()
-            rate_per_1000 = settings.earning_per_1000_views or Decimal('1.0000')  # default $1 per 1K
-            earning = calculate_earnings_per_1000_views(file_obj.views, rate_per_1000)
+            rate_per_1000 = settings.earning_per_1000_views or Decimal('1.0000')
+            incremental = calculate_earnings_per_1000_views(1, rate_per_1000)
+            incremental_earning = incremental
 
-            # Update file earnings (only view earnings)
-            file_obj.earnings = earning  # total view earnings
+            file_obj.earnings += incremental
             file_obj.save(update_fields=['views', 'unique_views', 'earnings'])
 
-            # Update user earnings
             user = file_obj.user
-            user.pending_earnings += (earning - (file_obj.earnings - (earning - file_obj.earnings)))  # better to recalculate
-            # Simpler: recalculate total view earnings
-            total_view_earning = calculate_earnings_per_1000_views(file_obj.views, rate_per_1000)
-            # But to avoid complexity, just add incremental
-            incremental = calculate_earnings_per_1000_views(1, rate_per_1000)  # earning for this 1 view
             user.pending_earnings += incremental
             user.total_earnings += incremental
             user.save(update_fields=['pending_earnings', 'total_earnings'])
 
-            FileView.objects.create(file=file_obj, ip_address=ip)
+            FileView.objects.create(
+                file=file_obj,
+                ip_address=ip,
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+            )
 
-        return Response({"message": "View counted"}, status=200)
+        # 🔥 सबसे महत्वपूर्ण: save के बाद fresh data लाओ
+        file_obj.refresh_from_db()
+
+        # latest data serialize करके return करो
+        serializer = FileSerializer(file_obj, context={'request': request})
+        return Response(serializer.data, status=200)
+
     except Exception as e:
         return Response({"error": str(e)}, status=400)
 
