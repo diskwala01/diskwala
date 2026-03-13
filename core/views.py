@@ -1524,7 +1524,7 @@ def signup(request):
 
     url = "https://api.brevo.com/v3/smtp/email"
     payload = {
-        "sender": {"name": "RoyalDisk", "email": "noreply@yourdomain.com"},  # ← apna verified sender daalo
+        "sender": {"name": "DiskWala", "email": "diskwala01@gmail.com"},  # ← apna verified sender daalo
         "to": [{"email": user.email, "name": user.username or user.email}],
         "subject": "RoyalDisk - Account Verification OTP",
         "htmlContent": f"""
@@ -1630,7 +1630,7 @@ def login_otp_request(request):
 
     url = "https://api.brevo.com/v3/smtp/email"
     payload = {
-        "sender": {"name": "RoyalDisk", "email": "noreply@yourdomain.com"},  # ← change to your sender
+        "sender": {"name": "DiskWala", "email": "diskwala01@gmail.com"},  # ← change to your sender
         "to": [{"email": user.email, "name": user.username or user.email}],
         "subject": "RoyalDisk Login OTP",
         "htmlContent": f"""
