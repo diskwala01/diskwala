@@ -1501,37 +1501,66 @@ def signup(request):
     if User.objects.filter(email=email).exists():
         return Response({"error": "Email already registered"}, status=400)
 
+    # Create user (inactive till OTP verify)
     user = User.objects.create_user(
         username=username,
         email=email,
         password=password,
-        is_active=False,           # OTP verify hone tak inactive
+        is_active=False,
         email_verified=False
     )
 
-    # OTP generate & save
-    otp = str(random.randint(100000, 999999))
+    # Generate OTP
+    otp = ''.join(random.choices('0123456789', k=6))
     user.email_otp = otp
     user.email_otp_expiry = timezone.now() + timedelta(minutes=10)
-    user.save()
+    user.save(update_fields=['email_otp', 'email_otp_expiry'])
 
-    # Send OTP email
+    # Brevo API call (same as your working send_email_otp)
+    api_key = os.environ.get("BREVO_API_KEY")
+    if not api_key:
+        user.delete()  # rollback
+        return Response({"error": "Email service not configured on server"}, status=500)
+
+    url = "https://api.brevo.com/v3/smtp/email"
+    payload = {
+        "sender": {"name": "RoyalDisk", "email": "noreply@yourdomain.com"},  # ← apna verified sender daalo
+        "to": [{"email": user.email, "name": user.username or user.email}],
+        "subject": "RoyalDisk - Account Verification OTP",
+        "htmlContent": f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>Welcome to RoyalDisk!</h2>
+            <p>Thank you for signing up. Your OTP for account verification is:</p>
+            <h1 style="font-size: 2.8em; letter-spacing: 10px; color: #6366f1; margin: 20px 0;">{otp}</h1>
+            <p>This OTP is valid for <strong>10 minutes</strong> only.</p>
+            <p><strong>Do not share this OTP with anyone.</strong></p>
+            <br>
+            <p>If you didn't sign up, please ignore this email.</p>
+            <p>Thanks,<br>RoyalDisk Team</p>
+          </body>
+        </html>
+        """
+    }
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+
     try:
-        send_mail(
-            subject="Your RoyalDisk Verification OTP",
-            message=f"Your OTP is {otp}\n\nValid for 10 minutes.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
-        )
-    except Exception as e:
-        user.delete()  # rollback agar email nahi gaya
-        return Response({"error": "Failed to send OTP. Try again."}, status=500)
-
-    return Response({
-        "message": "Account created. Please verify OTP sent to your email.",
-        "email": email
-    }, status=201)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response.raise_for_status()
+        return Response({
+            "message": "Account created. OTP sent to your email.",
+            "email": email
+        }, status=201)
+    except requests.exceptions.RequestException as e:
+        user.delete()  # rollback on failure
+        print("Brevo signup error:", str(e))
+        if hasattr(e, 'response') and e.response is not None:
+            print("Brevo response:", e.response.text)
+        return Response({"error": "Failed to send OTP. Please try again."}, status=500)
 
 
 @api_view(['POST'])
@@ -1544,7 +1573,7 @@ def signup_verify(request):
         return Response({"error": "Email and OTP required"}, status=400)
 
     try:
-        user = User.objects.get(email=email)
+        user = User.objects.get(email__iexact=email)
     except User.DoesNotExist:
         return Response({"error": "Invalid email"}, status=400)
 
@@ -1554,7 +1583,7 @@ def signup_verify(request):
     if user.email_otp != otp:
         return Response({"error": "Incorrect OTP"}, status=400)
 
-    # Success
+    # Success → activate account
     user.is_active = True
     user.email_verified = True
     user.email_otp = None
@@ -1567,44 +1596,75 @@ def signup_verify(request):
         "message": "Account verified successfully",
         "token": token.key
     }, status=200)
-
-
 # ------------------ LOGIN FLOW (OTP only) ------------------
+
+# ------------------ PASSWORDLESS LOGIN WITH BREVO OTP ------------------
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_otp_request(request):
     email = request.data.get('email')
-
+    
     if not email:
         return Response({"error": "Email is required"}, status=400)
 
     try:
-        user = User.objects.get(email=email)
+        user = User.objects.get(email__iexact=email)
     except User.DoesNotExist:
-        # Security: real user nahi batate
-        return Response({"message": "If this email exists, OTP has been sent."}, status=200)
+        # Security: batao mat ki email exist karti hai ya nahi
+        return Response({"message": "If this email is registered, OTP has been sent."}, status=200)
 
     if not user.is_active:
-        return Response({"error": "Account is not active. Please complete signup verification."}, status=403)
+        return Response({"error": "Account is not active. Please complete signup first."}, status=403)
 
-    otp = str(random.randint(100000, 999999))
+    # Generate OTP
+    otp = ''.join(random.choices('0123456789', k=6))
     user.email_otp = otp
     user.email_otp_expiry = timezone.now() + timedelta(minutes=10)
-    user.save()
+    user.save(update_fields=['email_otp', 'email_otp_expiry'])
+
+    # Brevo API call (exact copy of your working send_email_otp logic)
+    api_key = os.environ.get("BREVO_API_KEY")
+    if not api_key:
+        return Response({"error": "Email service not configured on server"}, status=500)
+
+    url = "https://api.brevo.com/v3/smtp/email"
+    payload = {
+        "sender": {"name": "RoyalDisk", "email": "noreply@yourdomain.com"},  # ← change to your sender
+        "to": [{"email": user.email, "name": user.username or user.email}],
+        "subject": "RoyalDisk Login OTP",
+        "htmlContent": f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Welcome back to RoyalDisk!</h2>
+            <p>Your one-time password (OTP) for login is:</p>
+            <h1 style="font-size: 2.5em; letter-spacing: 8px; color: #6366f1;">{otp}</h1>
+            <p>This OTP is valid for <strong>10 minutes</strong> only.</p>
+            <p><strong>Do not share this OTP with anyone.</strong></p>
+            <br>
+            <p>Thanks,<br>RoyalDisk Team</p>
+            <p style="font-size:0.85em; color:#666;">
+              If you didn't request this, please ignore this email.
+            </p>
+          </body>
+        </html>
+        """
+    }
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
 
     try:
-        send_mail(
-            subject="RoyalDisk Login OTP",
-            message=f"Your login OTP is {otp}\n\nValid for 10 minutes.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
-        )
-    except:
-        return Response({"error": "Failed to send OTP"}, status=500)
-
-    return Response({"message": "OTP sent to your email"}, status=200)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response.raise_for_status()
+        return Response({"message": "OTP sent successfully to your email"}, status=200)
+    except requests.exceptions.RequestException as e:
+        print("Brevo API Error:", str(e))
+        if hasattr(e, 'response') and e.response is not None:
+            print("Brevo Response:", e.response.text)
+        return Response({"error": "Failed to send OTP. Please try again later."}, status=500)
 
 
 @api_view(['POST'])
@@ -1613,11 +1673,11 @@ def login_otp_verify(request):
     email = request.data.get('email')
     otp   = request.data.get('otp')
 
-    if not all([email, otp]):
-        return Response({"error": "Email and OTP required"}, status=400)
+    if not email or not otp:
+        return Response({"error": "Email and OTP are required"}, status=400)
 
     try:
-        user = User.objects.get(email=email)
+        user = User.objects.get(email__iexact=email)
     except User.DoesNotExist:
         return Response({"error": "Invalid credentials"}, status=400)
 
@@ -1627,12 +1687,12 @@ def login_otp_verify(request):
     if user.email_otp != otp:
         return Response({"error": "Incorrect OTP"}, status=400)
 
-    # Clear OTP
+    # OTP sahi hai → clear karo aur token do
     user.email_otp = None
     user.email_otp_expiry = None
-    user.save()
+    user.save(update_fields=['email_otp', 'email_otp_expiry'])
 
-    token, _ = Token.objects.get_or_create(user=user)
+    token, created = Token.objects.get_or_create(user=user)
 
     return Response({
         "token": token.key,
