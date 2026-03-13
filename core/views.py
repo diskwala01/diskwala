@@ -27,7 +27,7 @@ from django.shortcuts import get_object_or_404, render
 from django.contrib.auth import authenticate, get_user_model
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from django.conf import settings as dj_settings
+from django.conf import settings
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
 from django.core.management import call_command
 from django.core.mail import send_mail
