@@ -16,6 +16,7 @@ urlpatterns = [
     path('files/', TemplateView.as_view(template_name='files.html')),
     path('analytics/', TemplateView.as_view(template_name='analytics.html')),
     path('api/auth/token/', ObtainAuthToken.as_view(), name='get_token'),
+    path('api/drama/', include('drama.urls')),
     path("api/system/migrate/", run_migrate),
     path("api/system/makemigrations/", run_makemigrations),
     path('billing/', TemplateView.as_view(template_name='billing.html')),

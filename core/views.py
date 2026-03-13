@@ -126,7 +126,7 @@ class ProfileView(APIView):
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def send_email_otp(request):
     user = request.user
     if user.email_verified:
@@ -177,7 +177,7 @@ def send_email_otp(request):
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def verify_email_otp(request):
     otp = request.data.get('otp')
     user = request.user
