@@ -126,7 +126,7 @@ class ProfileView(APIView):
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def send_email_otp(request):
     user = request.user
     if user.email_verified:
@@ -177,7 +177,7 @@ def send_email_otp(request):
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def verify_email_otp(request):
     otp = request.data.get('otp')
     user = request.user
@@ -1479,3 +1479,162 @@ def billing_summary(request):
 
         "withdrawable_balance": round(withdrawable_balance, 5)
     })
+
+# ------------------ SIGNUP FLOW ------------------
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def signup(request):
+    username = request.data.get('username')
+    email    = request.data.get('email')
+    password = request.data.get('password')
+
+    if not all([username, email, password]):
+        return Response({"error": "All fields are required"}, status=400)
+
+    if len(password) < 8:
+        return Response({"error": "Password must be at least 8 characters"}, status=400)
+
+    if User.objects.filter(username=username).exists():
+        return Response({"error": "Username already taken"}, status=400)
+
+    if User.objects.filter(email=email).exists():
+        return Response({"error": "Email already registered"}, status=400)
+
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        password=password,
+        is_active=False,           # OTP verify hone tak inactive
+        email_verified=False
+    )
+
+    # OTP generate & save
+    otp = str(random.randint(100000, 999999))
+    user.email_otp = otp
+    user.email_otp_expiry = timezone.now() + timedelta(minutes=10)
+    user.save()
+
+    # Send OTP email
+    try:
+        send_mail(
+            subject="Your RoyalDisk Verification OTP",
+            message=f"Your OTP is {otp}\n\nValid for 10 minutes.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        user.delete()  # rollback agar email nahi gaya
+        return Response({"error": "Failed to send OTP. Try again."}, status=500)
+
+    return Response({
+        "message": "Account created. Please verify OTP sent to your email.",
+        "email": email
+    }, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def signup_verify(request):
+    email = request.data.get('email')
+    otp   = request.data.get('otp')
+
+    if not email or not otp:
+        return Response({"error": "Email and OTP required"}, status=400)
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "Invalid email"}, status=400)
+
+    if not user.email_otp or timezone.now() > user.email_otp_expiry:
+        return Response({"error": "OTP expired or invalid"}, status=400)
+
+    if user.email_otp != otp:
+        return Response({"error": "Incorrect OTP"}, status=400)
+
+    # Success
+    user.is_active = True
+    user.email_verified = True
+    user.email_otp = None
+    user.email_otp_expiry = None
+    user.save()
+
+    token, _ = Token.objects.get_or_create(user=user)
+
+    return Response({
+        "message": "Account verified successfully",
+        "token": token.key
+    }, status=200)
+
+
+# ------------------ LOGIN FLOW (OTP only) ------------------
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_otp_request(request):
+    email = request.data.get('email')
+
+    if not email:
+        return Response({"error": "Email is required"}, status=400)
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        # Security: real user nahi batate
+        return Response({"message": "If this email exists, OTP has been sent."}, status=200)
+
+    if not user.is_active:
+        return Response({"error": "Account is not active. Please complete signup verification."}, status=403)
+
+    otp = str(random.randint(100000, 999999))
+    user.email_otp = otp
+    user.email_otp_expiry = timezone.now() + timedelta(minutes=10)
+    user.save()
+
+    try:
+        send_mail(
+            subject="RoyalDisk Login OTP",
+            message=f"Your login OTP is {otp}\n\nValid for 10 minutes.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except:
+        return Response({"error": "Failed to send OTP"}, status=500)
+
+    return Response({"message": "OTP sent to your email"}, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_otp_verify(request):
+    email = request.data.get('email')
+    otp   = request.data.get('otp')
+
+    if not all([email, otp]):
+        return Response({"error": "Email and OTP required"}, status=400)
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "Invalid credentials"}, status=400)
+
+    if not user.email_otp or timezone.now() > user.email_otp_expiry:
+        return Response({"error": "OTP expired or not requested"}, status=400)
+
+    if user.email_otp != otp:
+        return Response({"error": "Incorrect OTP"}, status=400)
+
+    # Clear OTP
+    user.email_otp = None
+    user.email_otp_expiry = None
+    user.save()
+
+    token, _ = Token.objects.get_or_create(user=user)
+
+    return Response({
+        "token": token.key,
+        "message": "Login successful"
+    }, status=200)
