@@ -1182,7 +1182,7 @@ def create_superuser(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def imagekit_auth(request):
-    private_key_str = getattr(dj_settings, 'IMAGEKIT_PRIVATE_KEY', None)
+    private_key_str = getattr(settings, 'IMAGEKIT_PRIVATE_KEY', None)
 
     if not private_key_str:
         return Response({"error": "Private key missing in settings"}, status=500)
