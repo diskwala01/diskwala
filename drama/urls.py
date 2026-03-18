@@ -22,6 +22,7 @@ from .views import (
     
     # Admin moderation
     admin_pending_dramas,
+    admin_dramas_list,
     admin_approve_drama,
     admin_reject_drama,
 )
@@ -35,6 +36,8 @@ urlpatterns = [
     path('categories/', 
          DramaCategoryListView.as_view(), 
          name='drama-categories'),
+
+     path('admin/dramas/', admin_dramas_list, name='admin-dramas-list'),
 
     # ───────────────────────────────────────────────
     # Creator – My dramas (authenticated only)

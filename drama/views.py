@@ -301,6 +301,26 @@ def admin_pending_dramas(request):
     serializer = DramaDetailSerializer(pending, many=True)
     return Response(serializer.data)
 
+# drama/views.py
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_dramas_list(request):
+    status_filter = request.query_params.get('status')
+    include_archived = request.query_params.get('include_archived', 'false').lower() == 'true'
+
+    qs = Drama.objects.select_related('user', 'category')
+
+    if not include_archived:
+        qs = qs.filter(is_archived=False)
+
+    if status_filter and status_filter != 'all':
+        qs = qs.filter(status=status_filter)
+
+    qs = qs.order_by('-created_at', '-approved_at')
+
+    serializer = DramaDetailSerializer(qs, many=True)
+    return Response(serializer.data)
+
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
