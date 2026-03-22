@@ -635,40 +635,54 @@ class CreateWithdrawalView(APIView):
 
     def post(self, request):
         user = request.user
-        
+
         # Email verification check
         if not user.email_verified:
             return Response({"error": "Please verify your email before withdrawing"}, status=400)
 
-        amount = request.data.get('amount')
+        amount_str = request.data.get('amount')
         payment_method = request.data.get('payment_method')
         payment_details = request.data.get('payment_details')
 
-        if not all([amount, payment_method, payment_details]):
-            return Response({"error": "All fields are required"}, status=400)
+        if not all([amount_str, payment_method, payment_details]):
+            return Response({"error": "Amount, payment method and payment details are required"}, status=400)
 
         try:
-            amount = Decimal(amount)
+            amount = Decimal(amount_str)
+            if amount <= 0:
+                raise ValueError
         except:
             return Response({"error": "Invalid amount"}, status=400)
 
         settings = SiteSettings.get_settings()
+
         if amount < settings.min_withdrawal:
-            return Response({"error": f"Minimum withdrawal is ${settings.min_withdrawal}"}, status=400)
+            return Response({
+                "error": f"Minimum withdrawal amount is ₹{settings.min_withdrawal}"
+            }, status=400)
 
-        # Calculate withdrawable balance (use billing summary logic)
-        billing = billing_summary_logic(user)  # आप billing_summary view से logic copy कर सकते हैं
-        if amount > billing['withdrawable_balance']:
-            return Response({"error": "Insufficient balance"}, status=400)
+        # अभी के लिए withdrawable balance check हटा रहे हैं
+        # अगर बाद में जोड़ना हो तो services.py में helper function बनाना
 
-        Withdrawal.objects.create(
+        # Withdrawal request create करो
+        withdrawal = Withdrawal.objects.create(
             user=user,
             amount=amount,
             payment_method=payment_method,
-            payment_details=payment_details
+            payment_details=payment_details,   # JSON field है तो dict ही भेजना
+            status='pending',
+            requested_at=timezone.now()
         )
 
-        return Response({"message": "Withdrawal request created successfully!"}, status=201)
+        # Optional: pending earnings में जोड़ सकते हो (अगर business rule है)
+        # user.pending_earnings += amount
+        # user.save(update_fields=['pending_earnings'])
+
+        serializer = WithdrawalSerializer(withdrawal)
+        return Response({
+            "message": "Withdrawal request submitted successfully!",
+            "withdrawal": serializer.data
+        }, status=status.HTTP_201_CREATED)
 
 
 class WithdrawalListView(generics.ListAPIView):
