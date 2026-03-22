@@ -40,7 +40,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.authtoken.models import Token
 
-from .models import UserFile, FileView, Withdrawal, SiteSettings, BotLink, FileDownload, BroadcastNotification
+from .models import UserFile, FileView, Withdrawal, SiteSettings, BotLink, FileDownload, BroadcastNotification, User
 from .serializers import UserProfileSerializer, FileSerializer, WithdrawalSerializer, BotLinkSerializer, BroadcastNotificationSerializer, SiteSettingsSerializer
 from .services import calculate_earnings_per_1000_views, calculate_earnings_per_1000_downloads
 from .utils import get_client_ip, is_unique_view_today
@@ -179,24 +179,28 @@ def send_email_otp(request):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def verify_email_otp(request):
-    otp = request.data.get('otp')
     user = request.user
+    otp = request.data.get('otp')
 
     if user.email_verified:
         return Response({"error": "Email already verified"}, status=400)
 
-    if not otp or otp != user.email_otp:
+    if not otp:
+        return Response({"error": "OTP is required"}, status=400)
+
+    if otp != user.email_otp:
         return Response({"error": "Invalid OTP"}, status=400)
 
     if timezone.now() > user.email_otp_expiry:
         return Response({"error": "OTP expired"}, status=400)
 
+    # OTP सही है → verify करो
     user.email_verified = True
     user.email_otp = None
     user.email_otp_expiry = None
     user.save(update_fields=['email_verified', 'email_otp', 'email_otp_expiry'])
 
-    return Response({"message": "Email verified successfully!"})
+    return Response({"message": "Email verified successfully!"}, status=200)
 
 # ========================
 # FILE UPLOAD & PUBLIC VIEW
@@ -1243,19 +1247,38 @@ def change_password(request):
 @permission_classes([IsAuthenticated])
 def change_email(request):
     user = request.user
+    new_email = request.data.get('new_email')  # या request.data.get('email') अगर frontend से 'email' भेज रहे हो
     current_password = request.data.get('current_password')
-    new_email = request.data.get('new_email')
 
+    # जरूरी fields चेक
+    if not new_email:
+        return Response({"error": "New email is required"}, status=400)
+
+    if not current_password:
+        return Response({"error": "Current password is required"}, status=400)
+
+    # पासवर्ड चेक
     if not user.check_password(current_password):
         return Response({"error": "Current password is incorrect"}, status=400)
 
+    # Email पहले से किसी और के पास तो नहीं?
     if User.objects.filter(email__iexact=new_email).exclude(pk=user.pk).exists():
-        return Response({"error": "Email already in use"}, status=400)
+        return Response({"error": "This email is already in use"}, status=400)
 
-    user.email = new_email
-    user.email_verified = False  # नया email → re-verify करवाओ
-    user.save()
-    return Response({"message": "Email updated successfully. Please re-verify your email."})
+    # Email format valid है या नहीं (simple check)
+    if '@' not in new_email or '.' not in new_email.split('@')[-1]:
+        return Response({"error": "Invalid email format"}, status=400)
+
+    # अब email बदलो
+    user.email = new_email.strip()          # strip से extra spaces हटाओ
+    user.email_verified = False             # नया email → फिर से verify करवाओ
+    user.email_otp = None
+    user.email_otp_expiry = None
+    user.save(update_fields=['email', 'email_verified', 'email_otp', 'email_otp_expiry'])
+
+    return Response({
+        "message": "Email updated successfully. Please verify your new email."
+    }, status=200)
 
 @api_view(['DELETE'])
 @authentication_classes([TokenAuthentication])
