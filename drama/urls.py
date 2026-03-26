@@ -18,6 +18,7 @@ from .views import (
     
     # View counting / analytics
     increment_drama_view,
+    admin_delete_drama,
     increment_episode_view,
     
     # Admin moderation
@@ -66,6 +67,9 @@ urlpatterns = [
     path('dramas/', 
          PublicDramaListView.as_view(), 
          name='public-dramas-list'),
+     path('admin/<int:pk>/delete/', 
+         admin_delete_drama, 
+         name='admin-delete-drama'),
 
     path('dramas/<str:short_code>/', 
          PublicDramaDetailView.as_view(), 

@@ -347,7 +347,25 @@ def admin_approve_drama(request, pk):
 
     return Response(DramaDetailSerializer(drama).data)
 
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_delete_drama(request, pk):
+    drama = get_object_or_404(Drama, pk=pk)
 
+    if drama.is_archived:
+        return Response(
+            {"error": "Drama is already archived"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Soft delete using existing archive method
+    drama.archive()
+
+    return Response({
+        "message": "Drama has been successfully archived",
+        "drama": DramaDetailSerializer(drama).data
+    })
+    
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def admin_reject_drama(request, pk):
