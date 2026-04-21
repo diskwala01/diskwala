@@ -41,7 +41,7 @@ from .views import (
     increment_download,
     billing_summary,
     public_site_settings,
-    views.r2_presign
+    r2_presign,
 
     # ========================
     # ADMIN AUTH & PANEL
@@ -94,7 +94,7 @@ urlpatterns = [
 
     # File update (title / thumbnail etc.)
     path("files/<int:pk>/update/", update_file, name="update_file"),
-    path('r2/presign/', views.r2_presign, name="r2_presign"),
+    path('r2/presign/', r2_presign, name="r2_presign"),
 
     # Public file access (short URL)
     path("f/<str:short_code>/", public_file_view, name="public_file_view"),
