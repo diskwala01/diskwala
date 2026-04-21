@@ -11,10 +11,12 @@ import io
 import random
 import string
 import time
+import boto3
 import hashlib
 import requests
 import hmac
 import binascii
+import uuid
 from django.db import connection
 from datetime import timedelta
 from decimal import Decimal
@@ -1392,7 +1394,39 @@ def get_active_notification(request):
     except:
         return Response({"detail": "No active notification"}, status=404)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def r2_presign(request):
+    file_name = request.data.get('file_name', 'file')
+    file_type = request.data.get('file_type', 'application/octet-stream')
 
+    ext = file_name.rsplit('.', 1)[-1] if '.' in file_name else ''
+    key = f"uploads/{uuid.uuid4()}.{ext}" if ext else f"uploads/{uuid.uuid4()}"
+
+    s3 = boto3.client(
+        's3',
+        endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
+        aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+        region_name='auto'
+    )
+
+    presigned_url = s3.generate_presigned_url(
+        'put_object',
+        Params={
+            'Bucket': settings.R2_BUCKET_NAME,
+            'Key': key,
+            'ContentType': file_type
+        },
+        ExpiresIn=3600
+    )
+
+    return JsonResponse({
+        'presigned_url': presigned_url,
+        'public_url': f"{settings.R2_PUBLIC_URL}/{key}",
+        'key': key
+    })
+    
 @api_view(['GET', 'POST'])
 @permission_classes([IsSuperuser])
 def admin_notifications(request):

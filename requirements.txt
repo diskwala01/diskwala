@@ -8,3 +8,4 @@ whitenoise
 python-decouple
 imagekitio
 requests
+boto3
