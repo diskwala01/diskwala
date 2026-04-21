@@ -934,10 +934,20 @@ def admin_settings(request):
 @api_view(['GET'])
 @permission_classes([IsSuperuser])
 def admin_withdrawals(request):
-    withdrawals = Withdrawal.objects.select_related('user').all().values(
-        'id', 'user__username', 'amount', 'status', 'requested_at', 'processed_at'
-    )
-    return Response(list(withdrawals))
+    withdrawals = Withdrawal.objects.select_related('user').all().order_by('-requested_at')
+    data = []
+    for w in withdrawals:
+        data.append({
+            'id': w.id,
+            'user_username': w.user.username,
+            'amount': str(w.amount),
+            'payment_method': w.payment_method,
+            'payment_details': w.payment_details,  # ← yahi missing tha
+            'status': w.status,
+            'requested_at': w.requested_at.isoformat(),
+            'processed_at': w.processed_at.isoformat() if w.processed_at else None,
+        })
+    return Response(data)
 
 
 @api_view(['POST'])
@@ -1426,7 +1436,7 @@ def r2_presign(request):
         'public_url': f"{settings.R2_PUBLIC_URL}/{key}",
         'key': key
     })
-    
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsSuperuser])
 def admin_notifications(request):
