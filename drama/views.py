@@ -218,43 +218,73 @@ def increment_drama_view(request, short_code):
     })
 
 
+# ───────────────────────────────────────────────
+# EPISODE VIEW COUNT + CREATOR EARNING (FINAL)
+# ───────────────────────────────────────────────
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def increment_episode_view(request, episode_id):
-    episode = get_object_or_404(
-        DramaEpisode,
-        id=episode_id,
-        is_active=True,
-        drama__status='approved',
-        drama__is_archived=False
-    )
-    ip = get_client_ip(request)
+    """
+    Drama Episode View Count + Creator Earning
+    Called from Flutter Drama Player
+    """
+    try:
+        episode = get_object_or_404(
+            DramaEpisode,
+            id=episode_id,
+            is_active=True,
+            drama__status='approved',
+            drama__is_archived=False
+        )
 
-    today = timezone.now().date()
-    already_viewed = EpisodeView.objects.filter(
-        episode=episode,
-        ip_address=ip,
-        view_date=today
-    ).exists()
+        ip = get_client_ip(request)
+        today = timezone.now().date()
 
-    if already_viewed:
-        return Response({"message": "Already viewed today", "views": episode.views})
+        # Unique view per day (fraud protection)
+        already_viewed = EpisodeView.objects.filter(
+            episode=episode,
+            ip_address=ip,
+            view_date=today
+        ).exists()
 
-    episode.views += 1
-    inc_earning = calculate_episode_view_earning(1)
-    episode.view_earnings += inc_earning
-    episode.earnings += inc_earning
-    episode.save(update_fields=['views', 'view_earnings', 'earnings'])
+        if already_viewed:
+            return Response({
+                "message": "Already viewed today",
+                "views": episode.views
+            })
 
-    update_drama_earnings(episode.drama)
+        # ===================== VIEW COUNT =====================
+        episode.views += 1
 
-    EpisodeView.objects.create(episode=episode, ip_address=ip)
+        # ===================== EARNING CALCULATION =====================
+        inc_earning = calculate_episode_view_earning(1)
 
-    return Response({
-        "message": "View counted",
-        "views": episode.views,
-        "earning_increment": float(inc_earning)
-    })
+        episode.view_earnings += inc_earning
+        episode.earnings += inc_earning
+        episode.save(update_fields=['views', 'view_earnings', 'earnings'])
+
+        # ===================== CREATOR EARNING =====================
+        creator = episode.drama.user
+        creator.pending_earnings += inc_earning
+        creator.total_earnings += inc_earning
+        creator.save(update_fields=['pending_earnings', 'total_earnings'])
+
+        # Log unique view
+        EpisodeView.objects.create(episode=episode, ip_address=ip)
+
+        # Update Drama total earnings
+        update_drama_earnings(episode.drama)
+
+        return Response({
+            "status": "success",
+            "message": "View counted successfully",
+            "views": episode.views,
+            "earning_given": float(inc_earning)
+        })
+
+    except Exception as e:
+        print(f"Drama Episode View Error: {str(e)}")
+        return Response({"error": "Something went wrong"}, status=400)
 
 
 # ───────────────────────────────────────────────

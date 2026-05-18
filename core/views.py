@@ -1779,3 +1779,6 @@ def login_otp_verify(request):
         "token": token.key,
         "message": "Login successful"
     }, status=200)
+# ========================
+# DRAMA EPISODE VIEW COUNT + EARNING
+# ========================
