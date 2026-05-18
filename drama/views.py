@@ -225,7 +225,7 @@ def increment_drama_view(request, short_code):
 @permission_classes([AllowAny])
 def increment_episode_view(request, episode_id):
     """
-    Drama Episode View Count + Creator Earning
+    Drama Episode View Count + Creator Earning + Drama Total Views Update
     Called from Flutter Drama Player
     """
     try:
@@ -275,10 +275,14 @@ def increment_episode_view(request, episode_id):
         # Update Drama total earnings
         update_drama_earnings(episode.drama)
 
+        # ===================== MOST IMPORTANT: Update Drama Total Views =====================
+        episode.drama.update_total_views()
+
         return Response({
             "status": "success",
             "message": "View counted successfully",
-            "views": episode.views,
+            "episode_views": episode.views,
+            "drama_total_views": episode.drama.views,   # ← Frontend ke liye extra info
             "earning_given": float(inc_earning)
         })
 

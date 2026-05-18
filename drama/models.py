@@ -52,8 +52,8 @@ class Drama(models.Model):
     )
 
     description     = models.TextField(blank=True)
-    thumbnail_url   = models.URLField(max_length=500, blank=True, null=True)   # ImageKit external
-    poster_url      = models.URLField(max_length=500, blank=True, null=True)   # bigger poster / banner
+    thumbnail_url   = models.URLField(max_length=500, blank=True, null=True)
+    poster_url      = models.URLField(max_length=500, blank=True, null=True)
 
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     approved_by     = models.ForeignKey(
@@ -68,7 +68,7 @@ class Drama(models.Model):
 
     # Statistics & Earnings
     views           = models.PositiveBigIntegerField(default=0)
-    total_episodes  = models.PositiveIntegerField(default=0)   # cache — updated via signal or save
+    total_episodes  = models.PositiveIntegerField(default=0)
     earnings        = models.DecimalField(max_digits=12, decimal_places=4, default=0.0000)
     view_earnings   = models.DecimalField(max_digits=12, decimal_places=4, default=0.0000)
 
@@ -89,25 +89,48 @@ class Drama(models.Model):
     def __str__(self):
         return f"{self.title} ({self.status})"
 
+    def update_total_views(self):
+        """Drama ke total views = sab episodes ke views ka sum"""
+        from django.db.models import Sum
+        
+        total_views = self.episodes.aggregate(
+            total=Sum('views')
+        )['total'] or 0
+
+        if self.views != total_views:
+            self.views = total_views
+            # Direct save without triggering recursion
+            super().save(update_fields=['views'])
+        
+        return total_views
+
     def save(self, *args, **kwargs):
+        # Slug generate
         if not self.slug:
             self.slug = slugify(self.title)[:250]
+
+        # Pehle save karo (new drama ke liye)
+        is_new = self.pk is None
         super().save(*args, **kwargs)
+
+        # Agar drama already exist karta hai to total views update karo
+        if not is_new:
+            self.update_total_views()
 
     def archive(self):
         """Soft-delete / archive this drama"""
         if not self.is_archived:
             self.is_archived = True
             self.archived_at = timezone.now()
-            self.status = 'archived'  # optional: sync status
+            self.status = 'archived'
             self.save(update_fields=['is_archived', 'archived_at', 'status'])
 
     def restore(self):
-        """Restore from archive (if needed)"""
+        """Restore from archive"""
         if self.is_archived:
             self.is_archived = False
             self.archived_at = None
-            self.status = 'pending'   # or 'approved' — your choice
+            self.status = 'pending'
             self.save(update_fields=['is_archived', 'archived_at', 'status'])
 
 
