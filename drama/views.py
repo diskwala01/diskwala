@@ -226,7 +226,6 @@ def increment_drama_view(request, short_code):
 def increment_episode_view(request, episode_id):
     """
     Drama Episode View Count + Creator Earning + Drama Total Views Update
-    Called from Flutter Drama Player
     """
     try:
         episode = get_object_or_404(
@@ -240,7 +239,6 @@ def increment_episode_view(request, episode_id):
         ip = get_client_ip(request)
         today = timezone.now().date()
 
-        # Unique view per day (fraud protection)
         already_viewed = EpisodeView.objects.filter(
             episode=episode,
             ip_address=ip,
@@ -253,36 +251,36 @@ def increment_episode_view(request, episode_id):
                 "views": episode.views
             })
 
-        # ===================== VIEW COUNT =====================
+        # View Count
         episode.views += 1
 
-        # ===================== EARNING CALCULATION =====================
+        # Earning
         inc_earning = calculate_episode_view_earning(1)
 
         episode.view_earnings += inc_earning
         episode.earnings += inc_earning
         episode.save(update_fields=['views', 'view_earnings', 'earnings'])
 
-        # ===================== CREATOR EARNING =====================
+        # Creator Earning
         creator = episode.drama.user
         creator.pending_earnings += inc_earning
         creator.total_earnings += inc_earning
         creator.save(update_fields=['pending_earnings', 'total_earnings'])
 
-        # Log unique view
+        # Log View
         EpisodeView.objects.create(episode=episode, ip_address=ip)
 
-        # Update Drama total earnings
+        # Update Drama Earnings
         update_drama_earnings(episode.drama)
 
-        # ===================== MOST IMPORTANT: Update Drama Total Views =====================
+        # 🔥 MOST IMPORTANT: Update Drama Total Views
         episode.drama.update_total_views()
 
         return Response({
             "status": "success",
             "message": "View counted successfully",
             "episode_views": episode.views,
-            "drama_total_views": episode.drama.views,   # ← Frontend ke liye extra info
+            "drama_total_views": episode.drama.views,   # ← Yeh important hai
             "earning_given": float(inc_earning)
         })
 

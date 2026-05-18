@@ -90,35 +90,30 @@ class Drama(models.Model):
         return f"{self.title} ({self.status})"
 
     def update_total_views(self):
-        """Drama ke total views = sab episodes ke views ka sum"""
+        """Drama views = sum of all its episodes views"""
         from django.db.models import Sum
         
-        total_views = self.episodes.aggregate(
-            total=Sum('views')
-        )['total'] or 0
-
-        if self.views != total_views:
-            self.views = total_views
-            # Direct save without triggering recursion
-            super().save(update_fields=['views'])
+        total = self.episodes.aggregate(total=Sum('views'))['total'] or 0
         
-        return total_views
+        if self.views != total:
+            self.views = total
+            # Direct save to avoid recursion
+            super(Drama, self).save(update_fields=['views'])
+        
+        return total
 
     def save(self, *args, **kwargs):
-        # Slug generate
         if not self.slug:
             self.slug = slugify(self.title)[:250]
 
-        # Pehle save karo (new drama ke liye)
         is_new = self.pk is None
         super().save(*args, **kwargs)
 
-        # Agar drama already exist karta hai to total views update karo
+        # New drama nahi hai to views update karo
         if not is_new:
             self.update_total_views()
 
     def archive(self):
-        """Soft-delete / archive this drama"""
         if not self.is_archived:
             self.is_archived = True
             self.archived_at = timezone.now()
@@ -126,7 +121,6 @@ class Drama(models.Model):
             self.save(update_fields=['is_archived', 'archived_at', 'status'])
 
     def restore(self):
-        """Restore from archive"""
         if self.is_archived:
             self.is_archived = False
             self.archived_at = None
