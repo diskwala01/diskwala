@@ -225,7 +225,7 @@ def increment_drama_view(request, short_code):
 @permission_classes([AllowAny])
 def increment_episode_view(request, episode_id):
     """
-    Drama Episode View Count + Creator Earning + Drama Total Views Update
+    Episode View + Earning + Drama Total Views + Drama Total Earnings
     """
     try:
         episode = get_object_or_404(
@@ -246,15 +246,12 @@ def increment_episode_view(request, episode_id):
         ).exists()
 
         if already_viewed:
-            return Response({
-                "message": "Already viewed today",
-                "views": episode.views
-            })
+            return Response({"message": "Already viewed today", "views": episode.views})
 
         # View Count
         episode.views += 1
 
-        # Earning
+        # Earning Calculation (Admin se changeable rate)
         inc_earning = calculate_episode_view_earning(1)
 
         episode.view_earnings += inc_earning
@@ -270,17 +267,15 @@ def increment_episode_view(request, episode_id):
         # Log View
         EpisodeView.objects.create(episode=episode, ip_address=ip)
 
-        # Update Drama Earnings
+        # Update Drama Totals
         update_drama_earnings(episode.drama)
-
-        # 🔥 MOST IMPORTANT: Update Drama Total Views
-        episode.drama.update_total_views()
+        episode.drama.update_total_views()   # views bhi update
 
         return Response({
             "status": "success",
-            "message": "View counted successfully",
+            "message": "View counted",
             "episode_views": episode.views,
-            "drama_total_views": episode.drama.views,   # ← Yeh important hai
+            "drama_total_views": episode.drama.views,
             "earning_given": float(inc_earning)
         })
 
@@ -297,23 +292,44 @@ def increment_episode_view(request, episode_id):
 def creator_drama_earnings_summary(request):
     user = request.user
 
+    # Get all non-archived dramas of the user
     dramas = Drama.objects.filter(user=user, is_archived=False)
 
-    agg = dramas.aggregate(
-        total_views=Sum('views'),
-        total_earnings=Sum('earnings'),
+    # Aggregate from Drama level (already updated via signals)
+    drama_agg = dramas.aggregate(
+        total_dramas_views=Sum('views'),
+        total_dramas_earnings=Sum('earnings'),
         pending_count=Count('id', filter=Q(status='pending')),
         approved_count=Count('id', filter=Q(status='approved')),
         rejected_count=Count('id', filter=Q(status='rejected')),
     )
 
+    # Get total from ALL episodes (more accurate)
+    episodes = DramaEpisode.objects.filter(
+        drama__user=user,
+        drama__is_archived=False
+    )
+
+    episode_agg = episodes.aggregate(
+        total_episode_views=Sum('views'),
+        total_episode_earnings=Sum('earnings'),
+    )
+
     data = {
         "total_dramas": dramas.count(),
-        "total_views": agg['total_views'] or 0,
-        "total_earnings": round(agg['total_earnings'] or Decimal('0.0000'), 4),
-        "pending_dramas": agg['pending_count'] or 0,
-        "approved_dramas": agg['approved_count'] or 0,
-        "rejected_dramas": agg['rejected_count'] or 0,
+        
+        # Views
+        "total_views": episode_agg['total_episode_views'] or 0,           # ← Episode se total
+        "drama_level_views": drama_agg['total_dramas_views'] or 0,       # backup
+        
+        # Earnings
+        "total_earnings": round(episode_agg['total_episode_earnings'] or Decimal('0.0000'), 4),
+        "drama_level_earnings": round(drama_agg['total_dramas_earnings'] or Decimal('0.0000'), 4),
+        
+        # Status counts
+        "pending_dramas": drama_agg['pending_count'] or 0,
+        "approved_dramas": drama_agg['approved_count'] or 0,
+        "rejected_dramas": drama_agg['rejected_count'] or 0,
     }
 
     return Response(data)

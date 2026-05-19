@@ -1,21 +1,23 @@
-# drama/services.py  (or append to core/services.py)
+# drama/services.py
 
 from decimal import Decimal
-from core.services import calculate_earnings_per_1000_views   # reuse
-
-def update_drama_earnings(drama):
-    """ Recalculate total earnings from all episodes """
-    total_view_earn = Decimal('0')
-    for ep in drama.episodes.all():
-        total_view_earn += ep.view_earnings
-    
-    drama.view_earnings = total_view_earn
-    drama.earnings = total_view_earn   # can add download_earnings later
-    drama.save(update_fields=['earnings', 'view_earnings'])
+from core.services import calculate_earnings_per_1000_views
+from core.models import SiteSettings
 
 
 def calculate_episode_view_earning(increment: int = 1) -> Decimal:
-    from core.models import SiteSettings
+    """Per 1000 views rate use करके earning calculate करो"""
     settings = SiteSettings.get_settings()
-    rate = settings.earning_per_1000_views or Decimal('1.0000')   # same as files for now
-    return calculate_earnings_per_1000_views(increment, rate)
+    rate_per_1000 = settings.earning_per_1000_views or Decimal('1.0000')
+    return calculate_earnings_per_1000_views(increment, rate_per_1000)
+
+
+def update_drama_earnings(drama):
+    """Drama ke total earnings = sab episodes ke earnings ka sum"""
+    total_earn = Decimal('0')
+    for ep in drama.episodes.all():
+        total_earn += ep.earnings or Decimal('0')
+    
+    drama.earnings = total_earn
+    drama.view_earnings = total_earn
+    drama.save(update_fields=['earnings', 'view_earnings'])
